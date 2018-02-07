@@ -1,4 +1,5 @@
 use memory::{Memory, NESMemory};
+use opcode::Opcode::*;
 
 /// An implementation of the NES CPU.
 ///
@@ -95,31 +96,27 @@ impl CPU {
 
     /// Execute a single instruction cycle.
     fn step(&mut self) {
-        let opcode = self.read_mem(self.pc);
+        let opcode = self.read_mem(self.pc).into();
         self.pc += 1;
 
         match opcode {
-            // LDA #imm
-            0xA9 => {
+            LDA_IMM => {
                 self.a = self.read_mem(self.pc);
                 self.pc += 1;
                 return;
             },
-            // LDA $addr
-            0xAD => {
+            LDA_ABS => {
                 let addr = self.read_mem(self.pc) as u16 | ((self.read_mem(self.pc + 1) as u16) << 8);
                 self.pc += 2;
                 self.a = self.read_mem(addr);
                 return;
             },
-            // LDA Zero Page
-            0xA5 => {
+            LDA_ZPAGE => {
                 self.a = self.read_mem(self.read_mem(self.pc) as u16);
                 self.pc += 1;
                 return;
             },
-            // LDA Absolute, X
-            0xBD => {
+            LDA_ABSX => {
                 let addr = self.read_mem(self.pc) as u16 | ((self.read_mem(self.pc + 1) as u16) << 8);
                 self.pc += 2;
                 self.a = self.read_mem(addr + self.x as u16);
@@ -160,12 +157,13 @@ impl CPU {
 #[cfg(test)]
 mod tests {
     use memory::Memory;
+    use opcode::Opcode::*;
     use super::CPU;
 
     #[test]
     fn test_lda_immediate() {
         let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0xA9); // LDA
+        cpu.memory.store(0x0000, LDA_IMM as u8);
         cpu.memory.store(0x0001, 0x17); // #$17
 
         cpu.step();
@@ -175,7 +173,7 @@ mod tests {
     #[test]
     fn test_lda_absolute() {
         let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0xAD); // LDA
+        cpu.memory.store(0x0000, LDA_ABS as u8);
         cpu.memory.store(0x0001, 0x14); // $0314
         cpu.memory.store(0x0002, 0x03);
 
@@ -188,7 +186,7 @@ mod tests {
     #[test]
     fn test_lda_zero_page() {
         let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0xA5); // LDA
+        cpu.memory.store(0x0000, LDA_ZPAGE as u8);
         cpu.memory.store(0x0001, 0x02); // $02
         cpu.memory.store(0x0002, 0x03);
 
@@ -199,7 +197,7 @@ mod tests {
     #[test]
     fn test_lda_absolute_x() {
         let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0xBD); // LDA
+        cpu.memory.store(0x0000, LDA_ABSX as u8);
         cpu.memory.store(0x0001, 0x00); // $0200
         cpu.memory.store(0x0002, 0x02);
 
