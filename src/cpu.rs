@@ -83,8 +83,8 @@ impl CPU {
         memory.store(0x4017, 0x00);
 
         Self {
-            _a: 0,
-            _x: 0,
+            a: 0,
+            x: 0,
             _y: 0,
             _p: 0x34, // 0x00111000 (IRQ disabled)
             pc: 0,
@@ -99,6 +99,32 @@ impl CPU {
         self.pc += 1;
 
         match opcode {
+            // LDA #imm
+            0xA9 => {
+                self.a = self.read_mem(self.pc);
+                self.pc += 1;
+                return;
+            },
+            // LDA $addr
+            0xAD => {
+                let addr = self.read_mem(self.pc) as u16 | ((self.read_mem(self.pc + 1) as u16) << 8);
+                self.pc += 2;
+                self.a = self.read_mem(addr);
+                return;
+            },
+            // LDA Zero Page
+            0xA5 => {
+                self.a = self.read_mem(self.read_mem(self.pc) as u16);
+                self.pc += 1;
+                return;
+            },
+            // LDA Absolute, X
+            0xBD => {
+                let addr = self.read_mem(self.pc) as u16 | ((self.read_mem(self.pc + 1) as u16) << 8);
+                self.pc += 2;
+                self.a = self.read_mem(addr + self.x as u16);
+                return;
+            },
             _ => panic!("Unimplemented!"),
         }
     }
@@ -128,5 +154,59 @@ impl CPU {
 
         // Silence the APU.
         self.memory.store(0x4015, 0x00);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use memory::Memory;
+    use super::CPU;
+
+    #[test]
+    fn test_lda_immediate() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0xA9); // LDA
+        cpu.memory.store(0x0001, 0x17); // #$17
+
+        cpu.step();
+        assert_eq!(cpu.a, 0x17);
+    }
+
+    #[test]
+    fn test_lda_absolute() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0xAD); // LDA
+        cpu.memory.store(0x0001, 0x14); // $0314
+        cpu.memory.store(0x0002, 0x03);
+
+        cpu.memory.store(0x0314, 0x31);
+
+        cpu.step();
+        assert_eq!(cpu.a, 0x31);
+    }
+
+    #[test]
+    fn test_lda_zero_page() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0xA5); // LDA
+        cpu.memory.store(0x0001, 0x02); // $02
+        cpu.memory.store(0x0002, 0x03);
+
+        cpu.step();
+        assert_eq!(cpu.a, 0x03);
+    }
+
+    #[test]
+    fn test_lda_absolute_x() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0xBD); // LDA
+        cpu.memory.store(0x0001, 0x00); // $0200
+        cpu.memory.store(0x0002, 0x02);
+
+        cpu.memory.store(0x20A, 0xFF);
+        cpu.x = 0x0A;
+
+        cpu.step();
+        assert_eq!(cpu.a, 0xFF);
     }
 }
