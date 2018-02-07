@@ -19,17 +19,19 @@ pub trait Memory {
 ///
 /// # Memory Map
 ///
-/// | Address Range | Size    | Device                                                  |
-/// |---------------|---------|---------------------------------------------------------|
-/// | `$0000-$07FF` | `$0800` | 2 KB internal RAM                                       |
-/// | `$0800-$0FFF` | `$0800` | Mirrors of `$0000-$07FF`                                |
-/// | `$1000-$17FF` | `$0800` | (same as above)                                         |
-/// | `$1800-$1FFF` | `$0800` | (same as above)                                         |
-/// | `$2000-$2007` | `$0008` | NES PPU registers                                       |
-/// | `$2008-$3FFF` | `$1FF8` | Mirrors of `$2000-$2007` (repeats every 8 bytes)        |
-/// | `$4000-$4017` | `$0018` | NES APU and I/O registers                               |
-/// | `$4018-$401F` | `$0008` | APU and I/O functionality that is normally disabled     |
-/// | `$4020-$FFFF` | `$BFE0` | Cartridge space: PRG ROM, PRG RAM, and mapper registers |
+/// | Address Range | Size    | Device                                                                       |
+/// |---------------|---------|------------------------------------------------------------------------------|
+/// | `$0000-$07FF` | `$0800` | 2 KB internal RAM                                                            |
+/// | `$0800-$0FFF` | `$0800` | Mirrors of `$0000-$07FF`                                                     |
+/// | `$1000-$17FF` | `$0800` | (same as above)                                                              |
+/// | `$1800-$1FFF` | `$0800` | (same as above)                                                              |
+/// | `$2000-$2007` | `$0008` | NES PPU registers                                                            |
+/// | `$2008-$3FFF` | `$1FF8` | Mirrors of `$2000-$2007` (repeats every 8 bytes)                             |
+/// | `$4000-$4017` | `$0018` | NES APU and I/O registers                                                    |
+/// | `$4018-$401F` | `$0008` | APU and I/O functionality that is normally disabled                          |
+/// | `$4020-$5FFF` | `$1FE0` | Expansion ROM (used with Nintendo's MMC5 to expand the capabilities of VRAM) |
+/// | `$6000-$7FFF` | `$2000` | SRAM (Save Ram used to save data between game plays)                         |
+/// | `$8000-$FFFF` | `$8000` | PRG-ROM                                                                      |
 ///
 /// ## Internal RAM
 ///
@@ -48,7 +50,15 @@ pub trait Memory {
 ///
 /// There are two special pages in the internal RAM, the zero page and the
 /// stack.
+///
+/// ### Zero Page
+///
 /// The "zero page" or "direct page" lies at `$0000-$00FF` (256 B).
+/// This page is utilized by several special addressing modes which allow for
+/// shorter/quicker instructions or allow indirect access to memory.
+///
+/// ### Stack Page
+///
 /// The "stack page" lies at `$0100-01FF`.
 ///
 /// ## ROM & Save/Work RAM
