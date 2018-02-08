@@ -1,4 +1,5 @@
 mod cpu;
+mod instruction;
 mod memory;
 mod opcode;
 

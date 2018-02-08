@@ -78,23 +78,6 @@ pub trait Memory {
 /// * `$FFFA-FFFB` - NMI vector
 /// * `$FFFC-FFFD` - Reset vector
 /// * `$FFFE-FFFF` - IRQ/BRK vector
-///
-/// # Addressing Modes
-///
-/// NES memory has several addressing modes available, as can be seen in the
-/// following table:
-///
-/// | Mode          | Instruction  | Action               |
-/// |---------------|--------------|----------------------|
-/// | Immediate     | LDA #$EA     | A <- $EA             |
-/// | Absolute      | LDA $0314    | A <- M($0314)        |
-/// | Absolute, X   | LDA $0314, X | A <- M($0314 + X)    |
-/// | Absolute, Y   | LDA $0314, Y | A <- M($0314 + Y)    |
-/// | Zeropage      | LDA $02      | A <- M($02)          |
-/// | Zeropage, X   | LDA $02, X   | A <- M($02 + X)      |
-/// | Zeropage, Y   | LDA $02, Y   | A <- M($02 + Y)      |
-/// | (Zeropage, X) | LDA ($02, X) | A <- M(PTR($02 + X)) |
-/// | (Zeropage), Y | LDA ($02), Y | A <- M(PTR($02) + Y) |
 pub struct NESMemory {
     /// Stores the 64 KB of NES memory.
     address_space: [u8; 0xFFFF],

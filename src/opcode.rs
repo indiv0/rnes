@@ -1,6 +1,6 @@
 /// All of the opcodes available on the NES.
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum Opcode {
     LDA_IMM = 0xA9,
     LDA_ZPAGE = 0xA5,

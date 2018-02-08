@@ -1,4 +1,6 @@
+use instruction::Instruction;
 use memory::{Address, Memory, NESMemory};
+use opcode::Opcode;
 use opcode::Opcode::*;
 
 const CPU_STATUS_REGISTER_INITIAL_VALUE: u8 = 0x34; // 0x00111000 (IRQ disabled)
@@ -99,31 +101,35 @@ impl CPU {
 
     /// Execute a single instruction cycle.
     fn step(&mut self) {
+        // Read the next opcode to be executed.
         let opcode = self.read_u8(self.pc).into();
         self.pc += 1;
 
-        match opcode {
-            LDA_IMM => {
-                let addr = self.addr_imm();
+        // Decode the opcode into an executable instruction.
+        let instruction = CPU::decode(&opcode);
+
+        // If the instruction requires an operand, use the specified addressing
+        // mode to determine its address.
+        let operand_addr = instruction.addressing_mode().map(|addressing_mode| {
+            use instruction::AddressingMode::*;
+
+            match *addressing_mode {
+                Immediate => self.addr_imm(),
+                Absolute => self.addr_abs(),
+                AbsoluteX => self.addr_abs_x(),
+                ZeroPage => self.addr_zero_page(),
+                _ => panic!("Unimplemented addressing mode"),
+            }
+        });
+
+        match *instruction.opcode() {
+            LDA_IMM | LDA_ABS | LDA_ZPAGE | LDA_ABSX => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
                 return;
             },
-            LDA_ABS => {
-                let addr = self.addr_abs();
-                self.lda(addr);
-                return;
-            },
-            LDA_ZPAGE => {
-                let addr = self.addr_zero_page();
-                self.lda(addr);
-                return;
-            },
-            LDA_ABSX => {
-                let addr = self.addr_abs_x();
-                self.lda(addr);
-                return;
-            },
-            _ => panic!("Unimplemented!"),
+            _ => panic!("Unimplemented instruction"),
         }
     }
 
@@ -131,6 +137,19 @@ impl CPU {
         // TODO: reset here (e.g. a, x, y, to 0)?
         loop {
             self.step();
+        }
+    }
+
+    /// Decodes an opcode into an executable CPU instruction.
+    fn decode(opcode: &Opcode) -> Instruction {
+        use instruction::AddressingMode::*;
+
+        match *opcode {
+            LDA_IMM => Instruction::new(opcode.clone(), Some(Immediate)),
+            LDA_ZPAGE => Instruction::new(opcode.clone(), Some(ZeroPage)),
+            LDA_ABS => Instruction::new(opcode.clone(), Some(Absolute)),
+            LDA_ABSX => Instruction::new(opcode.clone(), Some(AbsoluteX)),
+            Unimplemented => panic!("Unimplemented opcode"),
         }
     }
 
