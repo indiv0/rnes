@@ -186,7 +186,7 @@ impl CPU {
 
     /// Sets the value of the "zero" flag.
     fn set_zero(&mut self, zero: bool) {
-        self.p = bit_change(self.p, FLAG_ZERO, zero);
+        self.p = bit_set(self.p, FLAG_ZERO, zero);
     }
 
     /// Sets the value of the "negative" flag.
@@ -196,7 +196,7 @@ impl CPU {
 
     /// Sets the value of the "negative" flag.
     fn set_negative(&mut self, negative: bool) {
-        self.p = bit_change(self.p, FLAG_NEGATIVE, negative);
+        self.p = bit_set(self.p, FLAG_NEGATIVE, negative);
     }
 
     /// Reads and returns a single u8 value at the specified memory address.
@@ -332,7 +332,7 @@ impl CPU {
 }
 
 /// Sets the bit at position `n` to the specified value.
-fn bit_change(word: u8, n: u8, value: bool) -> u8 {
+fn bit_set(word: u8, n: u8, value: bool) -> u8 {
     println!("Setting bit {} in {:b} to {}", n, word, value);
     (word & (!(1 << n))) | ((value as u8) << n)
 }
@@ -346,7 +346,7 @@ fn bit_get(word: u8, n: u8) -> bool {
 mod tests {
     use memory::Memory;
     use opcode::Opcode::*;
-    use super::{bit_change, bit_get, CPU};
+    use super::{bit_set, bit_get, CPU};
 
     #[test]
     fn test_zero() {
@@ -591,15 +591,15 @@ mod tests {
     }
 
     #[test]
-    fn test_bit_change() {
+    fn test_bit_set() {
         let mut value = 0;
-        value = bit_change(value, 0, true);
+        value = bit_set(value, 0, true);
         assert_eq!(value, 0b00000001);
-        value = bit_change(value, 0, true);
+        value = bit_set(value, 0, true);
         assert_eq!(value, 0b00000001);
-        value = bit_change(value, 7, true);
+        value = bit_set(value, 7, true);
         assert_eq!(value, 0b10000001);
-        value = bit_change(value, 7, false);
+        value = bit_set(value, 7, false);
         assert_eq!(value, 0b00000001);
     }
 
