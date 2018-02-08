@@ -25,7 +25,7 @@ pub struct CPU {
     /// the stack pointer or change its value.
     x: u8,
     /// Index register Y.
-    _y: u8,
+    y: u8,
     /// Processor status.
     ///
     /// The processor status register contains flags which are set or cleared
@@ -91,7 +91,7 @@ impl CPU {
         Self {
             a: 0,
             x: 0,
-            _y: 0,
+            y: 0,
             _p: CPU_STATUS_REGISTER_INITIAL_VALUE,
             pc: 0,
             _sp: CPU_STACK_POINTER_INITIAL_VALUE,
@@ -106,7 +106,7 @@ impl CPU {
         self.pc += 1;
 
         // Decode the opcode into an executable instruction.
-        let instruction = CPU::decode(&opcode);
+        let instruction = CPU::decode(opcode);
 
         // If the instruction requires an operand, use the specified addressing
         // mode to determine its address.
@@ -115,15 +115,26 @@ impl CPU {
 
             match *addressing_mode {
                 Immediate => self.addr_imm(),
+                ZeroPage => self.addr_zero_page(),
+                ZeroPageX => self.addr_zero_page_x(),
                 Absolute => self.addr_abs(),
                 AbsoluteX => self.addr_abs_x(),
-                ZeroPage => self.addr_zero_page(),
+                AbsoluteY => self.addr_abs_y(),
+                IndirectX => self.addr_ind_x(),
+                IndirectY => self.addr_ind_y(),
                 _ => panic!("Unimplemented addressing mode"),
             }
         });
 
         match *instruction.opcode() {
-            LDA_IMM | LDA_ABS | LDA_ZPAGE | LDA_ABSX => {
+            LDA_IMM |
+            LDA_ZPAGE |
+            LDA_ZPAGEX |
+            LDA_ABS |
+            LDA_ABSX |
+            LDA_ABSY |
+            LDA_INDX |
+            LDA_INDY => {
                 let addr = operand_addr
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
@@ -141,14 +152,18 @@ impl CPU {
     }
 
     /// Decodes an opcode into an executable CPU instruction.
-    fn decode(opcode: &Opcode) -> Instruction {
+    fn decode(opcode: Opcode) -> Instruction {
         use instruction::AddressingMode::*;
 
-        match *opcode {
-            LDA_IMM => Instruction::new(opcode.clone(), Some(Immediate)),
-            LDA_ZPAGE => Instruction::new(opcode.clone(), Some(ZeroPage)),
-            LDA_ABS => Instruction::new(opcode.clone(), Some(Absolute)),
-            LDA_ABSX => Instruction::new(opcode.clone(), Some(AbsoluteX)),
+        match opcode {
+            LDA_IMM => Instruction::new(opcode, Some(Immediate)),
+            LDA_ZPAGE => Instruction::new(opcode, Some(ZeroPage)),
+            LDA_ZPAGEX => Instruction::new(opcode, Some(ZeroPageX)),
+            LDA_ABS => Instruction::new(opcode, Some(Absolute)),
+            LDA_ABSX => Instruction::new(opcode, Some(AbsoluteX)),
+            LDA_ABSY => Instruction::new(opcode, Some(AbsoluteY)),
+            LDA_INDX => Instruction::new(opcode, Some(IndirectX)),
+            LDA_INDY => Instruction::new(opcode, Some(IndirectY)),
             Unimplemented => panic!("Unimplemented opcode"),
         }
     }
@@ -176,6 +191,29 @@ impl CPU {
         addr
     }
 
+    /// Returns the zero page address value at the program counter location.
+    ///
+    /// # Note
+    ///
+    /// Increments the program counter by 1 to represent the memory read.
+    fn addr_zero_page(&mut self) -> Address {
+        let addr = self.read_u8(self.pc) as Address;
+        self.pc +=1;
+        addr
+    }
+
+    /// Returns the zero page address value at the program counter location,
+    /// with the current value of the `X` register added to it.
+    ///
+    /// # Note
+    ///
+    /// Increments the program counter by 1 to represent the memory read.
+    fn addr_zero_page_x(&mut self) -> Address {
+        let addr = self.read_u8(self.pc) as Address;
+        self.pc +=1;
+        addr + self.x as u16
+    }
+
     /// Returns the address value pointed to by the address value at the program
     /// counter location.
     ///
@@ -188,27 +226,53 @@ impl CPU {
         addr
     }
 
-    /// Returns the zero page address value at the program counter location.
-    ///
-    /// # Note
-    ///
-    /// Increments the program counter by 1 to represent the memory read.
-    fn addr_zero_page(&mut self) -> Address {
-        let addr = self.read_u8(self.pc) as Address;
-        self.pc +=1;
-        addr
-    }
-
     /// Returns the address value pointed to by the value located at the program
     /// counter location, incremented by the value of register `X`.
     ///
     /// # Note
     ///
-    /// increments the program counter by 2 to represent the memory read.
+    /// Increments the program counter by 2 to represent the memory read.
     fn addr_abs_x(&mut self) -> Address {
         let base_addr = self.read_u16(self.pc);
         self.pc += 2;
         base_addr + self.x as u16
+    }
+
+    /// Returns the address value pointed to by the value located at the program
+    /// counter location, incremented by the value of register `Y`.
+    ///
+    /// # Note
+    ///
+    /// Increments the program counter by 2 to represent the memory read.
+    fn addr_abs_y(&mut self) -> Address {
+        let base_addr = self.read_u16(self.pc);
+        self.pc += 2;
+        base_addr + self.y as u16
+    }
+
+    /// Adds the value of register `X` to the memory address located at the
+    /// program counter location, then returns the memory address value pointed
+    /// to by that value.
+    ///
+    /// # Note
+    ///
+    /// Increments the program counter by 1 to represent the memory read.
+    fn addr_ind_x(&mut self) -> Address {
+        let base_addr = self.read_u8(self.pc) as Address;
+        self.pc += 1;
+        self.read_u16(base_addr + self.x as u16)
+    }
+
+    /// Retrieves the memory address pointed to by the instruction operand, then
+    /// adds the value of register `Y` to this address.
+    ///
+    /// # Note
+    ///
+    /// Increments the program counter by 1 to represent the memory read.
+    fn addr_ind_y(&mut self) -> Address {
+        let base_addr = self.read_u8(self.pc) as Address;
+        self.pc += 1;
+        self.read_u16(base_addr) + self.y as u16
     }
 
     fn lda(&mut self, addr: Address) {
@@ -264,7 +328,24 @@ mod tests {
     }
 
     #[test]
-    fn test_read_abs() {
+    fn test_addr_zero_page() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0x10);
+
+        assert_eq!(cpu.addr_zero_page(), 0x0010);
+    }
+
+    #[test]
+    fn test_addr_zero_page_x() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0x10);
+        cpu.x = 0x05;
+
+        assert_eq!(cpu.addr_zero_page_x(), 0x0015);
+    }
+
+    #[test]
+    fn test_addr_abs() {
         let mut cpu = CPU::new();
         cpu.memory.store(0x0000, 0x00);
         cpu.memory.store(0x0001, 0x02);
@@ -273,21 +354,45 @@ mod tests {
     }
 
     #[test]
-    fn test_zero_page() {
-        let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0x10);
-
-        assert_eq!(cpu.addr_zero_page(), 0x0010);
-    }
-
-    #[test]
-    fn test_read_abs_x() {
+    fn test_addr_abs_x() {
         let mut cpu = CPU::new();
         cpu.memory.store(0x0000, 0x00);
         cpu.memory.store(0x0001, 0x02);
         cpu.x = 0x05;
 
         assert_eq!(cpu.addr_abs_x(), 0x0205);
+    }
+
+    #[test]
+    fn test_addr_abs_y() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0x00);
+        cpu.memory.store(0x0001, 0x02);
+        cpu.y = 0x05;
+
+        assert_eq!(cpu.addr_abs_y(), 0x0205);
+    }
+
+    #[test]
+    fn test_addr_ind_x() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0x04);
+        cpu.memory.store(0x0034, 0xCD);
+        cpu.memory.store(0x0035, 0xAB);
+        cpu.x = 0x30;
+
+        assert_eq!(cpu.addr_ind_x(), 0xABCD);
+    }
+
+    #[test]
+    fn test_addr_ind_y() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0x0A);
+        cpu.memory.store(0x000A, 0xEF);
+        cpu.memory.store(0x000B, 0xCD);
+        cpu.y = 0x01;
+
+        assert_eq!(cpu.addr_ind_y(), 0xCDF0);
     }
 
     #[test]
@@ -311,6 +416,29 @@ mod tests {
     }
 
     #[test]
+    fn test_lda_zero_page() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, LDA_ZPAGE as u8);
+        cpu.memory.store(0x0001, 0x02); // $02
+        cpu.memory.store(0x0002, 0x03);
+
+        cpu.step();
+        assert_eq!(cpu.a, 0x03);
+    }
+
+    #[test]
+    fn test_lda_zero_page_x() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, LDA_ZPAGEX as u8);
+        cpu.memory.store(0x0001, 0x02); // $02
+        cpu.memory.store(0x0005, 0xAB);
+        cpu.x = 0x03;
+
+        cpu.step();
+        assert_eq!(cpu.a, 0xAB);
+    }
+
+    #[test]
     fn test_lda_absolute() {
         let mut cpu = CPU::new();
         cpu.memory.store(0x0000, LDA_ABS as u8);
@@ -321,17 +449,6 @@ mod tests {
 
         cpu.step();
         assert_eq!(cpu.a, 0x31);
-    }
-
-    #[test]
-    fn test_lda_zero_page() {
-        let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, LDA_ZPAGE as u8);
-        cpu.memory.store(0x0001, 0x02); // $02
-        cpu.memory.store(0x0002, 0x03);
-
-        cpu.step();
-        assert_eq!(cpu.a, 0x03);
     }
 
     #[test]
@@ -346,5 +463,47 @@ mod tests {
 
         cpu.step();
         assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn test_lda_absolute_y() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, LDA_ABSY as u8);
+        cpu.memory.store(0x0001, 0x00); // $0200
+        cpu.memory.store(0x0002, 0x02);
+
+        cpu.memory.store(0x020A, 0xFF);
+        cpu.y = 0x0A;
+
+        cpu.step();
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn test_lda_ind_x() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, LDA_INDX as u8);
+        cpu.memory.store(0x0001, 0x80); // $0080
+        cpu.memory.store(0x008C, 0x3F);
+        cpu.memory.store(0x008D, 0xC4);
+        cpu.memory.store(0xC43F, 0x45);
+        cpu.x = 0x0C;
+
+        cpu.step();
+        assert_eq!(cpu.a, 0x45);
+    }
+
+    #[test]
+    fn test_lda_ind_y() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, LDA_INDY as u8);
+        cpu.memory.store(0x0001, 0x14); // $0014
+        cpu.memory.store(0x0014, 0x00);
+        cpu.memory.store(0x0015, 0xD8);
+        cpu.memory.store(0xD828, 0x0B);
+        cpu.y = 0x28;
+
+        cpu.step();
+        assert_eq!(cpu.a, 0x0B);
     }
 }

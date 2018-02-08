@@ -8,24 +8,24 @@ use opcode::Opcode;
 /// | Mode          | Instruction  | Action               |
 /// |---------------|--------------|----------------------|
 /// | Immediate     | LDA #$EA     | A <- $EA             |
-/// | Absolute      | LDA $0314    | A <- M($0314)        |
-/// | Absolute, X   | LDA $0314, X | A <- M($0314 + X)    |
-/// | Absolute, Y   | LDA $0314, Y | A <- M($0314 + Y)    |
 /// | Zeropage      | LDA $02      | A <- M($02)          |
 /// | Zeropage, X   | LDA $02, X   | A <- M($02 + X)      |
 /// | Zeropage, Y   | LDA $02, Y   | A <- M($02 + Y)      |
-/// | (Zeropage, X) | LDA ($02, X) | A <- M(PTR($02 + X)) |
-/// | (Zeropage), Y | LDA ($02), Y | A <- M(PTR($02) + Y) |
+/// | Absolute      | LDA $0314    | A <- M($0314)        |
+/// | Absolute, X   | LDA $0314, X | A <- M($0314 + X)    |
+/// | Absolute, Y   | LDA $0314, Y | A <- M($0314 + Y)    |
+/// | (Indirect, X) | LDA ($02, X) | A <- M(PTR($02 + X)) |
+/// | (Indirect), Y | LDA ($02), Y | A <- M(PTR($02) + Y) |
 pub enum AddressingMode {
     Immediate,
+    ZeroPage,
+    ZeroPageX,
+    _ZeroPageY,
     Absolute,
     AbsoluteX,
-    _AbsoluteY,
-    ZeroPage,
-    _ZeroPageX,
-    _ZeroPageY,
-    _IndirectX,
-    _IndirectY,
+    AbsoluteY,
+    IndirectX,
+    IndirectY,
 }
 
 /// An executable instruction for the NES CPU.
