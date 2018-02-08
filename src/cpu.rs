@@ -3,8 +3,19 @@ use memory::{Address, Memory, NESMemory};
 use opcode::Opcode;
 use opcode::Opcode::*;
 
+// Initialization values for the CPU registers.
 const CPU_STATUS_REGISTER_INITIAL_VALUE: u8 = 0x34; // 0x00111000 (IRQ disabled)
 const CPU_STACK_POINTER_INITIAL_VALUE: u8 = 0xFD;
+
+// Indices of the flag bits in the CPU status register.
+// TODO: perhaps replace this with the bitflags crate?
+const _FLAG_CARRY: u8 = 0;
+const FLAG_ZERO: u8 = 1;
+const _FLAG_IRQ_DISABLE: u8 = 2;
+const _FLAG_DECIMAL_MODE: u8 = 3;
+const _FLAG_BREAK: u8 = 5;
+const _FLAG_OVERFLOW: u8 = 6;
+const FLAG_NEGATIVE: u8 = 7;
 
 /// An implementation of the NES CPU.
 ///
@@ -54,7 +65,7 @@ pub struct CPU {
     ///   numbers and ending up with a negative result).
     /// * Negative Flag: set if the result of the last operation had bit 7 set
     ///   to one.
-    _p: u8,
+    p: u8,
     /// Program counter.
     ///
     /// Points to the address from which the next instruction byte will be
@@ -92,7 +103,7 @@ impl CPU {
             a: 0,
             x: 0,
             y: 0,
-            _p: CPU_STATUS_REGISTER_INITIAL_VALUE,
+            p: CPU_STATUS_REGISTER_INITIAL_VALUE,
             pc: 0,
             _sp: CPU_STACK_POINTER_INITIAL_VALUE,
             memory,
@@ -166,6 +177,26 @@ impl CPU {
             LDA_INDY => Instruction::new(opcode, Some(IndirectY)),
             Unimplemented => panic!("Unimplemented opcode"),
         }
+    }
+
+    /// Returns the value of the "zero" flag.
+    fn zero(&self) -> bool {
+        bit_get(self.p, FLAG_ZERO)
+    }
+
+    /// Sets the value of the "zero" flag.
+    fn set_zero(&mut self, zero: bool) {
+        self.p = bit_change(self.p, FLAG_ZERO, zero);
+    }
+
+    /// Sets the value of the "negative" flag.
+    fn negative(&self) -> bool {
+        bit_get(self.p, FLAG_NEGATIVE)
+    }
+
+    /// Sets the value of the "negative" flag.
+    fn set_negative(&mut self, negative: bool) {
+        self.p = bit_change(self.p, FLAG_NEGATIVE, negative);
     }
 
     /// Reads and returns a single u8 value at the specified memory address.
@@ -276,7 +307,11 @@ impl CPU {
     }
 
     fn lda(&mut self, addr: Address) {
-        self.a = self.read_u8(addr)
+        let value = self.read_u8(addr);
+        self.a = value;
+        self.set_zero(value == 0);
+        // Negative gets set if bit 7 of A is set.
+        self.set_negative(value & (1 << 7) != 0);
     }
 
     fn _reset(&mut self) {
@@ -286,7 +321,7 @@ impl CPU {
         self._sp -= 3;
 
         // Set the I (IRQ disable) flag to true).
-        self._p |= 0x04;
+        self.p |= 0x04;
 
         // Internal memory remains unchanged.
         // APU mode in $4017 remains unchanged.
@@ -296,11 +331,42 @@ impl CPU {
     }
 }
 
+/// Sets the bit at position `n` to the specified value.
+fn bit_change(word: u8, n: u8, value: bool) -> u8 {
+    println!("Setting bit {} in {:b} to {}", n, word, value);
+    (word & (!(1 << n))) | ((value as u8) << n)
+}
+
+/// Gets the value of the bit at position `n`.
+fn bit_get(word: u8, n: u8) -> bool {
+    word & (1 << n) != 0
+}
+
 #[cfg(test)]
 mod tests {
     use memory::Memory;
     use opcode::Opcode::*;
-    use super::CPU;
+    use super::{bit_change, bit_get, CPU};
+
+    #[test]
+    fn test_zero() {
+        let mut cpu = CPU::new();
+
+        cpu.set_zero(false);
+        assert!(!cpu.zero());
+        cpu.set_zero(true);
+        assert!(cpu.zero());
+    }
+
+    #[test]
+    fn test_negative() {
+        let mut cpu = CPU::new();
+
+        cpu.set_negative(false);
+        assert!(!cpu.negative());
+        cpu.set_negative(true);
+        assert!(cpu.negative());
+    }
 
     #[test]
     fn test_read_u8() {
@@ -403,6 +469,23 @@ mod tests {
         assert_eq!(cpu.a, 0x00);
         cpu.lda(0x0200);
         assert_eq!(cpu.a, 0xFF);
+        assert!(!cpu.zero());
+
+        // Test that the zero flag gets set correctly.
+        cpu.memory.store(0x0000, 0x00);
+        cpu.memory.store(0x0001, 0x01);
+        cpu.lda(0x0000);
+        assert!(cpu.zero());
+        cpu.lda(0x0001);
+        assert!(!cpu.zero());
+
+        // Test that the negative flag gets set correctly.
+        cpu.memory.store(0x0000, 0x00);
+        cpu.memory.store(0x0001, 0x80);
+        cpu.lda(0x0000);
+        assert!(!cpu.negative());
+        cpu.lda(0x0001);
+        assert!(cpu.negative());
     }
 
     #[test]
@@ -505,5 +588,24 @@ mod tests {
 
         cpu.step();
         assert_eq!(cpu.a, 0x0B);
+    }
+
+    #[test]
+    fn test_bit_change() {
+        let mut value = 0;
+        value = bit_change(value, 0, true);
+        assert_eq!(value, 0b00000001);
+        value = bit_change(value, 0, true);
+        assert_eq!(value, 0b00000001);
+        value = bit_change(value, 7, true);
+        assert_eq!(value, 0b10000001);
+        value = bit_change(value, 7, false);
+        assert_eq!(value, 0b00000001);
+    }
+
+    #[test]
+    fn test_bit_get() {
+        assert_eq!(bit_get(0b10000000, 7), true);
+        assert_eq!(bit_get(0b10000000, 6), false);
     }
 }
