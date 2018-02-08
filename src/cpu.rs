@@ -1,4 +1,4 @@
-use memory::{Memory, NESMemory};
+use memory::{Address, Memory, NESMemory};
 use opcode::Opcode::*;
 
 const CPU_STATUS_REGISTER_INITIAL_VALUE: u8 = 0x34; // 0x00111000 (IRQ disabled)
@@ -62,7 +62,7 @@ pub struct CPU {
     /// respectively. The program counter may be read by pushing its value to
     /// the stack. This can be done by jumping to a subroutine or by causing an
     /// interrupt.
-    pc: u16,
+    pc: Address,
     /// Stack pointer.
     ///
     /// Holds the low 8 bits of the next free location on the stack.
@@ -151,7 +151,7 @@ impl CPU {
     /// # Note
     ///
     /// Increments the program counter by 1 to represent the memory read.
-    fn addr_imm(&mut self) -> u16 {
+    fn addr_imm(&mut self) -> Address {
         let addr = self.pc;
         self.pc += 1;
         addr
@@ -163,7 +163,7 @@ impl CPU {
     /// # Note
     ///
     /// Increments the program counter by 2 to represent the memory read.
-    fn addr_abs(&mut self) -> u16 {
+    fn addr_abs(&mut self) -> Address {
         let addr = self.read_u16(self.pc);
         self.pc += 2;
         addr
@@ -174,8 +174,8 @@ impl CPU {
     /// # Note
     ///
     /// Increments the program counter by 1 to represent the memory read.
-    fn addr_zero_page(&mut self) -> u16 {
-        let addr = self.read_u8(self.pc) as u16;
+    fn addr_zero_page(&mut self) -> Address {
+        let addr = self.read_u8(self.pc) as Address;
         self.pc +=1;
         addr
     }
@@ -186,13 +186,13 @@ impl CPU {
     /// # Note
     ///
     /// increments the program counter by 2 to represent the memory read.
-    fn addr_abs_x(&mut self) -> u16 {
+    fn addr_abs_x(&mut self) -> Address {
         let base_addr = self.read_u16(self.pc);
         self.pc += 2;
         base_addr + self.x as u16
     }
 
-    fn lda(&mut self, addr: u16) {
+    fn lda(&mut self, addr: Address) {
         self.a = self.read_u8(addr)
     }
 

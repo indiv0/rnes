@@ -1,3 +1,6 @@
+/// A memory address.
+pub type Address = u16;
+
 /// Trait for 16-bit addressed memory management operations.
 ///
 /// This trait allows for basic 16-bit memory functionality.
@@ -8,11 +11,11 @@ pub trait Memory {
     fn reset(&mut self);
 
     /// Fetches the value at the specified memory address.
-    fn fetch(&self, address: u16) -> u8;
+    fn fetch(&self, address: Address) -> u8;
 
     /// Stores the value at the specified memory address and returns the
     /// previously stored value.
-    fn store(&mut self, address: u16, value: u8) -> u8;
+    fn store(&mut self, address: Address, value: u8) -> u8;
 }
 
 /// An implementation of the NES CPU memory.
@@ -111,11 +114,11 @@ impl Memory for NESMemory {
         self.address_space = [0; 0xFFFF];
     }
 
-    fn fetch(&self, address: u16) -> u8 {
+    fn fetch(&self, address: Address) -> u8 {
         self.address_space[address as usize]
     }
 
-    fn store(&mut self, address: u16, value: u8) -> u8 {
+    fn store(&mut self, address: Address, value: u8) -> u8 {
         let previous = self.address_space[address as usize];
         self.address_space[address as usize] = value;
         previous
