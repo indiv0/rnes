@@ -1,6 +1,9 @@
 use memory::{Memory, NESMemory};
 use opcode::Opcode::*;
 
+const CPU_STATUS_REGISTER_INITIAL_VALUE: u8 = 0x34; // 0x00111000 (IRQ disabled)
+const CPU_STACK_POINTER_INITIAL_VALUE: u8 = 0xFD;
+
 /// An implementation of the NES CPU.
 ///
 /// # Architecture
@@ -87,9 +90,9 @@ impl CPU {
             a: 0,
             x: 0,
             _y: 0,
-            _p: 0x34, // 0x00111000 (IRQ disabled)
+            _p: CPU_STATUS_REGISTER_INITIAL_VALUE,
             pc: 0,
-            _sp: 0xFD,
+            _sp: CPU_STACK_POINTER_INITIAL_VALUE,
             memory,
         }
     }
