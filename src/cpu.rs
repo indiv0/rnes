@@ -101,23 +101,23 @@ impl CPU {
 
         match opcode {
             LDA_IMM => {
-                let value = self.read_imm();
-                self.lda(value);
+                let addr = self.addr_imm();
+                self.lda(addr);
                 return;
             },
             LDA_ABS => {
-                let value = self.read_abs();
-                self.lda(value);
+                let addr = self.addr_abs();
+                self.lda(addr);
                 return;
             },
             LDA_ZPAGE => {
-                let value = self.read_zero_page();
-                self.lda(value);
+                let addr = self.addr_zero_page();
+                self.lda(addr);
                 return;
             },
             LDA_ABSX => {
-                let value = self.read_abs_x();
-                self.lda(value);
+                let addr = self.addr_abs_x();
+                self.lda(addr);
                 return;
             },
             _ => panic!("Unimplemented!"),
@@ -132,7 +132,7 @@ impl CPU {
     }
 
     /// Reads and returns a single u8 value at the specified memory address.
-    fn read_u8(&self, addr: u16) -> u8 {
+    fn read_u8(&self, addr: Address) -> u8 {
         self.memory.fetch(addr)
     }
 
@@ -143,44 +143,54 @@ impl CPU {
         high << 8 | low
     }
 
-    /// Returns the memory value at the address specified by the program
-    /// counter; increments the program counter by 1 to represent the memory
-    /// read.
-    fn read_imm(&mut self) -> u8 {
-        let value = self.read_u8(self.pc);
+    /// Returns the address value of the program counter location.
+    ///
+    /// # Note
+    ///
+    /// Increments the program counter by 1 to represent the memory read.
+    fn addr_imm(&mut self) -> u16 {
+        let addr = self.pc;
         self.pc += 1;
-        value
+        addr
     }
 
-    /// Returns a memory value, using the value located at the program counter
-    /// as the memory address; increments the program counter by 2 to represent
-    /// the memory read.
-    fn read_abs(&mut self) -> u8 {
+    /// Returns the address value pointed to by the address value at the program
+    /// counter location.
+    ///
+    /// # Note
+    ///
+    /// Increments the program counter by 2 to represent the memory read.
+    fn addr_abs(&mut self) -> u16 {
         let addr = self.read_u16(self.pc);
         self.pc += 2;
-        self.read_u8(addr)
+        addr
     }
 
-    /// Returns a memory value, using the value located at the program counter
-    /// as an 8-bit zero page memory address; increments the program counter by
-    /// 1 to represent the memory read.
-    fn read_zero_page(&mut self) -> u8 {
+    /// Returns the zero page address value at the program counter location.
+    ///
+    /// # Note
+    ///
+    /// Increments the program counter by 1 to represent the memory read.
+    fn addr_zero_page(&mut self) -> u16 {
         let addr = self.read_u8(self.pc) as u16;
         self.pc +=1;
-        self.read_u8(addr)
+        addr
     }
 
-    /// Returns a memory value, using the value located at the program counter
-    /// as the base memory address and the value of register `X` as an offset;
+    /// Returns the address value pointed to by the value located at the program
+    /// counter location, incremented by the value of register `X`.
+    ///
+    /// # Note
+    ///
     /// increments the program counter by 2 to represent the memory read.
-    fn read_abs_x(&mut self) -> u8 {
+    fn addr_abs_x(&mut self) -> u16 {
         let base_addr = self.read_u16(self.pc);
         self.pc += 2;
-        self.read_u8(base_addr + self.x as u16)
+        base_addr + self.x as u16
     }
 
-    fn lda(&mut self, value: u8) {
-        self.a = value
+    fn lda(&mut self, addr: u16) {
+        self.a = self.read_u8(addr)
     }
 
     fn _reset(&mut self) {
@@ -224,11 +234,11 @@ mod tests {
     }
 
     #[test]
-    fn test_read_imm() {
+    fn test_addr_imm() {
         let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0xFF);
+        cpu.pc = 0x00FF;
 
-        assert_eq!(cpu.read_imm(), 0xFF);
+        assert_eq!(cpu.addr_imm(), 0x00FF);
     }
 
     #[test]
@@ -236,18 +246,16 @@ mod tests {
         let mut cpu = CPU::new();
         cpu.memory.store(0x0000, 0x00);
         cpu.memory.store(0x0001, 0x02);
-        cpu.memory.store(0x0200, 0xFF);
 
-        assert_eq!(cpu.read_abs(), 0xFF);
+        assert_eq!(cpu.addr_abs(), 0x0200);
     }
 
     #[test]
     fn test_zero_page() {
         let mut cpu = CPU::new();
         cpu.memory.store(0x0000, 0x10);
-        cpu.memory.store(0x0010, 0xFF);
 
-        assert_eq!(cpu.read_zero_page(), 0xFF);
+        assert_eq!(cpu.addr_zero_page(), 0x0010);
     }
 
     #[test]
@@ -255,18 +263,18 @@ mod tests {
         let mut cpu = CPU::new();
         cpu.memory.store(0x0000, 0x00);
         cpu.memory.store(0x0001, 0x02);
-        cpu.memory.store(0x0205, 0xFF);
         cpu.x = 0x05;
 
-        assert_eq!(cpu.read_abs_x(), 0xFF);
+        assert_eq!(cpu.addr_abs_x(), 0x0205);
     }
 
     #[test]
     fn test_lda() {
         let mut cpu = CPU::new();
+        cpu.memory.store(0x0200, 0xFF);
 
         assert_eq!(cpu.a, 0x00);
-        cpu.lda(0xFF);
+        cpu.lda(0x0200);
         assert_eq!(cpu.a, 0xFF);
     }
 
