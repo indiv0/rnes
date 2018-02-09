@@ -80,6 +80,8 @@ opcodes!(
     (BMI, 0x30, Relative),
     // Branch if Not Equal
     (BNE, 0xD0, Relative),
+    // Branch if Positive
+    (BPL, 0x10, Relative),
     // Load Accumulator
     (LDA_IMM, 0xA9, Immediate),
     (LDA_ZPAGE, 0xA5, ZeroPage),

@@ -206,6 +206,11 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.bne(addr);
             },
+            BPL => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.bpl(addr);
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -529,6 +534,14 @@ impl CPU {
     /// location if the zero flag is not set.
     fn bne(&mut self, addr: Address) {
         if !self.zero() {
+            self.branch(addr);
+        }
+    }
+
+    /// Adds the relative value to the program counter to branch to a new
+    /// location if the negative flag is clear.
+    fn bpl(&mut self, addr: Address) {
+        if !self.negative() {
             self.branch(addr);
         }
     }
@@ -887,6 +900,22 @@ mod tests {
 
         cpu.pc = 0;
         cpu.set_zero(true);
+        cpu.step();
+        assert_eq!(cpu.pc, 2);
+    }
+
+    #[test]
+    fn test_bpl() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, BPL as u8);
+        cpu.memory.store(0x0001, 0x04);
+
+        cpu.set_negative(false);
+        cpu.step();
+        assert_eq!(cpu.pc, 4);
+
+        cpu.pc = 0;
+        cpu.set_negative(true);
         cpu.step();
         assert_eq!(cpu.pc, 2);
     }
