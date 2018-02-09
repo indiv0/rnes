@@ -78,6 +78,8 @@ opcodes!(
     (BIT_ABS, 0x2C, Absolute),
     // Branch if Minus
     (BMI, 0x30, Relative),
+    // Branch if Not Equal
+    (BNE, 0xD0, Relative),
     // Load Accumulator
     (LDA_IMM, 0xA9, Immediate),
     (LDA_ZPAGE, 0xA5, ZeroPage),
