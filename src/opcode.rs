@@ -71,6 +71,8 @@ opcodes!(
     (BCC, 0x90, Relative),
     // Branch if Carry Set
     (BCS, 0xB0, Relative),
+    // Branch if Equal
+    (BEQ, 0xF0, Relative),
     // Load Accumulator
     (LDA_IMM, 0xA9, Immediate),
     (LDA_ZPAGE, 0xA5, ZeroPage),

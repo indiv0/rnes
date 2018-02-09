@@ -186,6 +186,11 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.bcs(addr);
             },
+            BEQ => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.beq(addr);
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -465,6 +470,19 @@ impl CPU {
     fn bcs(&mut self, addr: Address) {
         if self.carry() {
             // Because BCS steps the program counter by 2, we must first
+            // decrement it back.
+            // TODO: find a way to optimize this?
+            self.pc -= 2;
+            // Add the signed relative value to the program counter.
+            self.pc += (addr ^ 0x80) - 0x80;
+        }
+    }
+
+    /// Adds the relative value to the program counter to branch to a new
+    /// location if the zero flag is set.
+    fn beq(&mut self, addr: Address) {
+        if self.zero() {
+            // Because BEQ steps the program counter by 2, we must first
             // decrement it back.
             // TODO: find a way to optimize this?
             self.pc -= 2;
@@ -755,6 +773,22 @@ mod tests {
 
         cpu.pc = 0;
         cpu.set_carry(false);
+        cpu.step();
+        assert_eq!(cpu.pc, 2);
+    }
+
+    #[test]
+    fn test_beq() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0xF0);
+        cpu.memory.store(0x0001, 0x04);
+
+        cpu.set_zero(true);
+        cpu.step();
+        assert_eq!(cpu.pc, 4);
+
+        cpu.pc = 0;
+        cpu.set_zero(false);
         cpu.step();
         assert_eq!(cpu.pc, 2);
     }
