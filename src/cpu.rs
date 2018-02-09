@@ -196,6 +196,11 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.bit(addr);
             },
+            BMI => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.bmi(addr);
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -274,6 +279,17 @@ impl CPU {
 
         // Silence the APU.
         self.memory.store(0x4015, 0x00);
+    }
+
+    /// Adds the relative displacement to the program counter to branch to a new
+    /// location.
+    fn branch(&mut self, relative_addr: Address) {
+        // Because branch instructions step the program counter by 2, we must
+        // first decrement it back.
+        // TODO: find a way to optimize this?
+        self.pc -= 2;
+        // Add the signed relative value to the program counter.
+        self.pc += (relative_addr ^ 0x80) - 0x80;
     }
 
     // Memory read
@@ -461,12 +477,7 @@ impl CPU {
     /// location if the carry flag is clear.
     fn bcc(&mut self, addr: Address) {
         if !self.carry() {
-            // Because BCC steps the program counter by 2, we must first
-            // decrement it back.
-            // TODO: find a way to optimize this?
-            self.pc -= 2;
-            // Add the signed relative value to the program counter.
-            self.pc += (addr ^ 0x80) - 0x80;
+            self.branch(addr);
         }
     }
 
@@ -474,12 +485,7 @@ impl CPU {
     /// location if the carry flag is set.
     fn bcs(&mut self, addr: Address) {
         if self.carry() {
-            // Because BCS steps the program counter by 2, we must first
-            // decrement it back.
-            // TODO: find a way to optimize this?
-            self.pc -= 2;
-            // Add the signed relative value to the program counter.
-            self.pc += (addr ^ 0x80) - 0x80;
+            self.branch(addr);
         }
     }
 
@@ -487,12 +493,7 @@ impl CPU {
     /// location if the zero flag is set.
     fn beq(&mut self, addr: Address) {
         if self.zero() {
-            // Because BEQ steps the program counter by 2, we must first
-            // decrement it back.
-            // TODO: find a way to optimize this?
-            self.pc -= 2;
-            // Add the signed relative value to the program counter.
-            self.pc += (addr ^ 0x80) - 0x80;
+            self.branch(addr);
         }
     }
 
@@ -509,6 +510,14 @@ impl CPU {
         self.set_overflow(bit_get(value, 7));
         // Bit 7 of the value is copied into the N flag.
         self.set_negative(bit_get(value, 6));
+    }
+
+    /// Adds the relative displacement to the program counter to branch, if
+    /// the negative flag is set.
+    fn bmi(&mut self, addr: Address) {
+        if self.negative() {
+            self.branch(addr);
+        }
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -835,6 +844,22 @@ mod tests {
         assert!(cpu.zero());
         assert!(!cpu.overflow());
         assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_bmi() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, BMI as u8);
+        cpu.memory.store(0x0001, 0x04);
+
+        cpu.set_negative(true);
+        cpu.step();
+        assert_eq!(cpu.pc, 4);
+
+        cpu.pc = 0;
+        cpu.set_negative(false);
+        cpu.step();
+        assert_eq!(cpu.pc, 2);
     }
 
     #[test]
