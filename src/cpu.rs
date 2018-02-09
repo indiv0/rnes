@@ -9,12 +9,12 @@ const CPU_STACK_POINTER_INITIAL_VALUE: u8 = 0xFD;
 
 // Indices of the flag bits in the CPU status register.
 // TODO: perhaps replace this with the bitflags crate?
-const _FLAG_CARRY: u8 = 0;
+const FLAG_CARRY: u8 = 0;
 const FLAG_ZERO: u8 = 1;
 const _FLAG_IRQ_DISABLE: u8 = 2;
 const _FLAG_DECIMAL_MODE: u8 = 3;
 const _FLAG_BREAK: u8 = 5;
-const _FLAG_OVERFLOW: u8 = 6;
+const FLAG_OVERFLOW: u8 = 6;
 const FLAG_NEGATIVE: u8 = 7;
 
 /// An implementation of the NES CPU.
@@ -179,6 +179,16 @@ impl CPU {
         }
     }
 
+    /// Returns the value of the "carry" flag.
+    fn carry(&self) -> bool {
+        bit_get(self.p, FLAG_CARRY)
+    }
+
+    /// Sets the value of the "carry" flag.
+    fn set_carry(&mut self, carry: bool) {
+        self.p = bit_set(self.p, FLAG_CARRY, carry);
+    }
+
     /// Returns the value of the "zero" flag.
     fn zero(&self) -> bool {
         bit_get(self.p, FLAG_ZERO)
@@ -187,6 +197,16 @@ impl CPU {
     /// Sets the value of the "zero" flag.
     fn set_zero(&mut self, zero: bool) {
         self.p = bit_set(self.p, FLAG_ZERO, zero);
+    }
+
+    /// Returns the value of the "overflow" flag.
+    fn overflow(&self) -> bool {
+        bit_get(self.p, FLAG_OVERFLOW)
+    }
+
+    /// Sets the value of the "overflow" flag.
+    fn set_overflow(&mut self, overflow: bool) {
+        self.p = bit_set(self.p, FLAG_OVERFLOW, overflow);
     }
 
     /// Sets the value of the "negative" flag.
