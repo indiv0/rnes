@@ -138,6 +138,19 @@ impl CPU {
         });
 
         match *instruction.opcode() {
+            ADC_IMM |
+            ADC_ZPAGE |
+            ADC_ZPAGEX |
+            ADC_ABS |
+            ADC_ABSX |
+            ADC_ABSY |
+            ADC_INDX |
+            ADC_INDY => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.adc(addr);
+                return;
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -167,6 +180,14 @@ impl CPU {
         use instruction::AddressingMode::*;
 
         match opcode {
+            ADC_IMM => Instruction::new(opcode, Some(Immediate)),
+            ADC_ZPAGE => Instruction::new(opcode, Some(ZeroPage)),
+            ADC_ZPAGEX => Instruction::new(opcode, Some(ZeroPageX)),
+            ADC_ABS => Instruction::new(opcode, Some(Absolute)),
+            ADC_ABSX => Instruction::new(opcode, Some(AbsoluteX)),
+            ADC_ABSY => Instruction::new(opcode, Some(AbsoluteY)),
+            ADC_INDX => Instruction::new(opcode, Some(IndirectX)),
+            ADC_INDY => Instruction::new(opcode, Some(IndirectY)),
             LDA_IMM => Instruction::new(opcode, Some(Immediate)),
             LDA_ZPAGE => Instruction::new(opcode, Some(ZeroPage)),
             LDA_ZPAGEX => Instruction::new(opcode, Some(ZeroPageX)),
@@ -219,6 +240,24 @@ impl CPU {
         self.p = bit_set(self.p, FLAG_NEGATIVE, negative);
     }
 
+    fn _reset(&mut self) {
+        // A, X, Y are not affected by reset.
+
+        // Decrement S by 3, but do not write anything to the stack.
+        self._sp -= 3;
+
+        // Set the I (IRQ disable) flag to true).
+        self.p |= 0x04;
+
+        // Internal memory remains unchanged.
+        // APU mode in $4017 remains unchanged.
+
+        // Silence the APU.
+        self.memory.store(0x4015, 0x00);
+    }
+
+    // Memory read
+
     /// Reads and returns a single u8 value at the specified memory address.
     fn read_u8(&self, addr: Address) -> u8 {
         self.memory.fetch(addr)
@@ -230,6 +269,8 @@ impl CPU {
         let high = self.read_u8(addr + 1) as u16;
         high << 8 | low
     }
+
+    // Memory addressing
 
     /// Returns the address value of the program counter location.
     ///
@@ -326,6 +367,25 @@ impl CPU {
         self.read_u16(base_addr) + self.y as u16
     }
 
+    // Instructions
+
+    fn adc(&mut self, addr: Address) {
+        let arg = self.read_u8(addr);
+        let (sum, overflow1) = self.a.overflowing_add(arg);
+        let (sum, overflow2) = sum.overflowing_add(self.carry() as u8);
+        let carry = overflow1 || overflow2;
+
+        // Carry flag gets set if overflow in bit 7.
+        self.set_carry(carry);
+        // Set if A = 0
+        self.set_zero(sum == 0);
+        // Set if sign bit is incorrect.
+        let overflow = !(self.a ^ arg) & (self.a ^ sum) & 0x80;
+        self.set_overflow(overflow != 0);
+
+        self.a = sum;
+    }
+
     fn lda(&mut self, addr: Address) {
         let value = self.read_u8(addr);
         self.a = value;
@@ -333,27 +393,10 @@ impl CPU {
         // Negative gets set if bit 7 of A is set.
         self.set_negative(value & (1 << 7) != 0);
     }
-
-    fn _reset(&mut self) {
-        // A, X, Y are not affected by reset.
-
-        // Decrement S by 3, but do not write anything to the stack.
-        self._sp -= 3;
-
-        // Set the I (IRQ disable) flag to true).
-        self.p |= 0x04;
-
-        // Internal memory remains unchanged.
-        // APU mode in $4017 remains unchanged.
-
-        // Silence the APU.
-        self.memory.store(0x4015, 0x00);
-    }
 }
 
 /// Sets the bit at position `n` to the specified value.
 fn bit_set(word: u8, n: u8, value: bool) -> u8 {
-    println!("Setting bit {} in {:b} to {}", n, word, value);
     (word & (!(1 << n))) | ((value as u8) << n)
 }
 
@@ -369,18 +412,23 @@ mod tests {
     use super::{bit_set, bit_get, CPU};
 
     #[test]
-    fn test_zero() {
+    fn test_status_register() {
         let mut cpu = CPU::new();
+
+        cpu.set_carry(false);
+        assert!(!cpu.carry());
+        cpu.set_carry(true);
+        assert!(cpu.carry());
 
         cpu.set_zero(false);
         assert!(!cpu.zero());
         cpu.set_zero(true);
         assert!(cpu.zero());
-    }
 
-    #[test]
-    fn test_negative() {
-        let mut cpu = CPU::new();
+        cpu.set_overflow(false);
+        assert!(!cpu.overflow());
+        cpu.set_overflow(true);
+        assert!(cpu.overflow());
 
         cpu.set_negative(false);
         assert!(!cpu.negative());
@@ -506,6 +554,59 @@ mod tests {
         assert!(!cpu.negative());
         cpu.lda(0x0001);
         assert!(cpu.negative());
+    }
+
+    #[test]
+    fn test_adc() {
+        let mut cpu = CPU::new();
+
+        // 1 + 1 = 2, returns C = 0, V = 0
+        cpu.set_zero(false);
+        cpu.set_carry(false);
+        cpu.set_overflow(false);
+        cpu.memory.store(0x0000, 0x01);
+        cpu.a = 0x01;
+        cpu.adc(0x0000);
+        assert_eq!(cpu.a, 0x02);
+        assert!(!cpu.zero());
+        assert!(!cpu.carry());
+        assert!(!cpu.overflow());
+
+        // 1 + -1 = 0, returns C = 1, V = 0
+        cpu.set_zero(false);
+        cpu.set_carry(false);
+        cpu.set_overflow(false);
+        cpu.memory.store(0x0000, 0xFF);
+        cpu.a = 0x01;
+        cpu.adc(0x0000);
+        assert_eq!(cpu.a, 0x00);
+        assert!(cpu.zero());
+        assert!(cpu.carry());
+        assert!(!cpu.overflow());
+
+        // 127 + 1 = 128, returns C = 0, V = 1
+        cpu.set_zero(false);
+        cpu.set_carry(false);
+        cpu.set_overflow(false);
+        cpu.memory.store(0x0000, 0x01);
+        cpu.a = 0x7F;
+        cpu.adc(0x0000);
+        assert_eq!(cpu.a, 0x80);
+        assert!(!cpu.zero());
+        assert!(!cpu.carry());
+        assert!(cpu.overflow());
+
+        // -128 + -1 = -129, returns C = 1, V = 1
+        cpu.set_zero(false);
+        cpu.set_carry(false);
+        cpu.set_overflow(false);
+        cpu.memory.store(0x0000, 0xFF);
+        cpu.a = 0x80;
+        cpu.adc(0x0000);
+        assert_eq!(cpu.a, 0x7F);
+        assert!(!cpu.zero());
+        assert!(cpu.carry());
+        assert!(cpu.overflow());
     }
 
     #[test]
