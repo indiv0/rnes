@@ -12,6 +12,7 @@ use opcode::Opcode;
 /// | Zeropage      | LDA $02      | A <- M($02)          |
 /// | Zeropage, X   | LDA $02, X   | A <- M($02 + X)      |
 /// | Zeropage, Y   | LDA $02, Y   | A <- M($02 + Y)      |
+/// | Relative      | BCC *+4      | PC <- PC + 4         |
 /// | Absolute      | LDA $0314    | A <- M($0314)        |
 /// | Absolute, X   | LDA $0314, X | A <- M($0314 + X)    |
 /// | Absolute, Y   | LDA $0314, Y | A <- M($0314 + Y)    |
@@ -31,6 +32,9 @@ pub enum AddressingMode {
     /// Address to be accessed is a zero page address calculated by taking the
     /// 8-bit operand and adding the current value of the `Y` register to it.
     _ZeroPageY,
+    /// Used by branch instructions; adds operand as a signed 8-bit offset to
+    /// the program counter.
+    Relative,
     /// Address to be accessed is the 16-bit operand following the instruction.
     Absolute,
     /// Address to be accessed is calculated by taking the 16-bit operand

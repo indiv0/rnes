@@ -67,6 +67,8 @@ opcodes!(
     (ASL_ZPAGEX, 0x16, ZeroPageX),
     (ASL_ABS, 0x0E, Absolute),
     (ASL_ABSX, 0x1E, AbsoluteX),
+    // Branch if Carry Clear
+    (BCC, 0x90, Relative),
     // Load Accumulator
     (LDA_IMM, 0xA9, Immediate),
     (LDA_ZPAGE, 0xA5, ZeroPage),

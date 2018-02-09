@@ -128,6 +128,7 @@ impl CPU {
                 Immediate => self.addr_imm(),
                 ZeroPage => self.addr_zero_page(),
                 ZeroPageX => self.addr_zero_page_x(),
+                Relative => self.relative(),
                 Absolute => self.addr_abs(),
                 AbsoluteX => self.addr_abs_x(),
                 AbsoluteY => self.addr_abs_y(),
@@ -174,6 +175,11 @@ impl CPU {
                 let addr = operand_addr
                     .expect("Operand address was unexpectedly missing");
                 self.asl(Some(addr));
+            },
+            BCC => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.bcc(addr);
             },
             LDA_IMM |
             LDA_ZPAGE |
@@ -289,7 +295,7 @@ impl CPU {
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_zero_page(&mut self) -> Address {
         let addr = self.read_u8(self.pc) as Address;
-        self.pc +=1;
+        self.pc += 1;
         addr
     }
 
@@ -301,8 +307,16 @@ impl CPU {
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_zero_page_x(&mut self) -> Address {
         let addr = self.read_u8(self.pc) as Address;
-        self.pc +=1;
+        self.pc += 1;
         addr + self.x as u16
+    }
+
+    /// Returns a memory address by taking the value at the program counter
+    /// location and adding it to the current value of the program counter.
+    fn relative(&mut self) -> Address {
+        let addr = self.read_u8(self.pc) as Address;
+        self.pc += 1;
+        addr
     }
 
     /// Returns the address value pointed to by the address value at the program
@@ -426,6 +440,19 @@ impl CPU {
             Some(addr) => { self.memory.store(addr, res); },
             None => self.a = res,
         };
+    }
+
+    /// Adds the relative value to the program counter to branch to a new
+    /// location if the carry flag is clear.
+    fn bcc(&mut self, addr: Address) {
+        if !self.carry() {
+            // Because BCC steps the program counter by 2, we must first
+            // decrement it back.
+            // TODO: find a way to optimize this?
+            self.pc -= 2;
+            // Add the signed relative value to the program counter.
+            self.pc += (addr ^ 0x80) - 0x80;
+        }
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -680,6 +707,22 @@ mod tests {
         assert!(cpu.carry());
         assert!(!cpu.zero());
         assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_bcc() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0x90);
+        cpu.memory.store(0x0001, 0x04);
+
+        cpu.set_carry(false);
+        cpu.step();
+        assert_eq!(cpu.pc, 4);
+
+        cpu.pc = 0;
+        cpu.set_carry(true);
+        cpu.step();
+        assert_eq!(cpu.pc, 2);
     }
 
     #[test]
