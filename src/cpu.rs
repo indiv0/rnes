@@ -226,7 +226,7 @@ impl CPU {
                 self.lda(addr);
                 return;
             },
-            _ => panic!("Unimplemented instruction"),
+            ref opcode => panic!("Unimplemented instruction: {:?}", opcode),
         }
     }
 
