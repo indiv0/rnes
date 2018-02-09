@@ -151,6 +151,19 @@ impl CPU {
                 self.adc(addr);
                 return;
             },
+            AND_IMM |
+            AND_ZPAGE |
+            AND_ZPAGEX |
+            AND_ABS |
+            AND_ABSX |
+            AND_ABSY |
+            AND_INDX |
+            AND_INDY => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.and(addr);
+                return;
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -188,6 +201,14 @@ impl CPU {
             ADC_ABSY => Instruction::new(opcode, Some(AbsoluteY)),
             ADC_INDX => Instruction::new(opcode, Some(IndirectX)),
             ADC_INDY => Instruction::new(opcode, Some(IndirectY)),
+            AND_IMM => Instruction::new(opcode, Some(Immediate)),
+            AND_ZPAGE => Instruction::new(opcode, Some(ZeroPage)),
+            AND_ZPAGEX => Instruction::new(opcode, Some(ZeroPageX)),
+            AND_ABS => Instruction::new(opcode, Some(Absolute)),
+            AND_ABSX => Instruction::new(opcode, Some(AbsoluteX)),
+            AND_ABSY => Instruction::new(opcode, Some(AbsoluteY)),
+            AND_INDX => Instruction::new(opcode, Some(IndirectX)),
+            AND_INDY => Instruction::new(opcode, Some(IndirectY)),
             LDA_IMM => Instruction::new(opcode, Some(Immediate)),
             LDA_ZPAGE => Instruction::new(opcode, Some(ZeroPage)),
             LDA_ZPAGEX => Instruction::new(opcode, Some(ZeroPageX)),
@@ -377,21 +398,38 @@ impl CPU {
 
         // Carry flag gets set if overflow in bit 7.
         self.set_carry(carry);
-        // Set if A = 0
-        self.set_zero(sum == 0);
         // Set if sign bit is incorrect.
         let overflow = !(self.a ^ arg) & (self.a ^ sum) & 0x80;
         self.set_overflow(overflow != 0);
 
         self.a = sum;
+
+        // Set if A = 0
+        let zero = self.a == 0;
+        self.set_zero(zero);
+    }
+
+    fn and(&mut self, addr: Address) {
+        let arg = self.read_u8(addr);
+
+        self.a = self.a & arg;
+
+        // Set if A = 0
+        let zero = self.a == 0;
+        self.set_zero(zero);
+        // Set if bit 7 set
+        let negative = is_negative(self.a);
+        self.set_negative(negative);
     }
 
     fn lda(&mut self, addr: Address) {
         let value = self.read_u8(addr);
         self.a = value;
-        self.set_zero(value == 0);
+        let zero = self.a == 0;
+        self.set_zero(zero);
         // Negative gets set if bit 7 of A is set.
-        self.set_negative(value & (1 << 7) != 0);
+        let negative = is_negative(self.a);
+        self.set_negative(negative);
     }
 }
 
@@ -403,6 +441,11 @@ fn bit_set(word: u8, n: u8, value: bool) -> u8 {
 /// Gets the value of the bit at position `n`.
 fn bit_get(word: u8, n: u8) -> bool {
     word & (1 << n) != 0
+}
+
+/// Returns true if the provided value is negative (i.e., if bit 7 is set).
+fn is_negative(value: u8) -> bool {
+    bit_get(value, 7)
 }
 
 #[cfg(test)]
@@ -530,33 +573,6 @@ mod tests {
     }
 
     #[test]
-    fn test_lda() {
-        let mut cpu = CPU::new();
-        cpu.memory.store(0x0200, 0xFF);
-
-        assert_eq!(cpu.a, 0x00);
-        cpu.lda(0x0200);
-        assert_eq!(cpu.a, 0xFF);
-        assert!(!cpu.zero());
-
-        // Test that the zero flag gets set correctly.
-        cpu.memory.store(0x0000, 0x00);
-        cpu.memory.store(0x0001, 0x01);
-        cpu.lda(0x0000);
-        assert!(cpu.zero());
-        cpu.lda(0x0001);
-        assert!(!cpu.zero());
-
-        // Test that the negative flag gets set correctly.
-        cpu.memory.store(0x0000, 0x00);
-        cpu.memory.store(0x0001, 0x80);
-        cpu.lda(0x0000);
-        assert!(!cpu.negative());
-        cpu.lda(0x0001);
-        assert!(cpu.negative());
-    }
-
-    #[test]
     fn test_adc() {
         let mut cpu = CPU::new();
 
@@ -607,6 +623,57 @@ mod tests {
         assert!(!cpu.zero());
         assert!(cpu.carry());
         assert!(cpu.overflow());
+    }
+
+    #[test]
+    fn test_and() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0xA5);
+
+        cpu.a = 0xFF;
+        cpu.and(0x0000);
+        assert_eq!(cpu.a, 0xA5);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.a = 0x05;
+        cpu.and(0x0000);
+        assert_eq!(cpu.a, 0x05);
+        assert!(!cpu.zero());
+        assert!(!cpu.negative());
+
+        cpu.a = 0x00;
+        cpu.and(0x0000);
+        assert_eq!(cpu.a, 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_lda() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0200, 0xFF);
+
+        assert_eq!(cpu.a, 0x00);
+        cpu.lda(0x0200);
+        assert_eq!(cpu.a, 0xFF);
+        assert!(!cpu.zero());
+
+        // Test that the zero flag gets set correctly.
+        cpu.memory.store(0x0000, 0x00);
+        cpu.memory.store(0x0001, 0x01);
+        cpu.lda(0x0000);
+        assert!(cpu.zero());
+        cpu.lda(0x0001);
+        assert!(!cpu.zero());
+
+        // Test that the negative flag gets set correctly.
+        cpu.memory.store(0x0000, 0x00);
+        cpu.memory.store(0x0001, 0x80);
+        cpu.lda(0x0000);
+        assert!(!cpu.negative());
+        cpu.lda(0x0001);
+        assert!(cpu.negative());
     }
 
     #[test]
