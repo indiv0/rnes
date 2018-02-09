@@ -748,7 +748,7 @@ mod tests {
     #[test]
     fn test_bcc() {
         let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0x90);
+        cpu.memory.store(0x0000, BCC as u8);
         cpu.memory.store(0x0001, 0x04);
 
         cpu.set_carry(false);
@@ -764,7 +764,7 @@ mod tests {
     #[test]
     fn test_bcs() {
         let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0xB0);
+        cpu.memory.store(0x0000, BCS as u8);
         cpu.memory.store(0x0001, 0x04);
 
         cpu.set_carry(true);
@@ -780,7 +780,7 @@ mod tests {
     #[test]
     fn test_beq() {
         let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0xF0);
+        cpu.memory.store(0x0000, BEQ as u8);
         cpu.memory.store(0x0001, 0x04);
 
         cpu.set_zero(true);
