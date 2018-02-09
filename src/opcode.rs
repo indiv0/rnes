@@ -1,67 +1,73 @@
-/// All of the opcodes available on the NES.
-#[allow(non_camel_case_types)]
-#[derive(Clone, Debug)]
-pub enum Opcode {
-    // Add with Carry
-    ADC_IMM = 0x69,
-    ADC_ZPAGE = 0x65,
-    ADC_ZPAGEX = 0x75,
-    ADC_ABS = 0x6D,
-    ADC_ABSX = 0x7D,
-    ADC_ABSY = 0x79,
-    ADC_INDX = 0x61,
-    ADC_INDY = 0x71,
-    // Logical AND
-    AND_IMM = 0x29,
-    AND_ZPAGE = 0x25,
-    AND_ZPAGEX = 0x35,
-    AND_ABS = 0x2D,
-    AND_ABSX = 0x3D,
-    AND_ABSY = 0x39,
-    AND_INDX = 0x21,
-    AND_INDY = 0x31,
-    // Load Accumulator
-    LDA_IMM = 0xA9,
-    LDA_ZPAGE = 0xA5,
-    LDA_ZPAGEX = 0xB5,
-    LDA_ABS = 0xAD,
-    LDA_ABSX = 0xBD,
-    LDA_ABSY = 0xB9,
-    LDA_INDX = 0xA1,
-    LDA_INDY = 0xB1,
-    Unimplemented,
-}
+use instruction::Instruction;
 
-impl From<u8> for Opcode {
-    fn from(byte: u8) -> Self {
-        use self::Opcode::*;
-
-        match byte {
-            0x69 => ADC_IMM,
-            0x65 => ADC_ZPAGE,
-            0x75 => ADC_ZPAGEX,
-            0x6D => ADC_ABS,
-            0x7D => ADC_ABSX,
-            0x79 => ADC_ABSY,
-            0x61 => ADC_INDX,
-            0x71 => ADC_INDY,
-            0x29 => AND_IMM,
-            0x25 => AND_ZPAGE,
-            0x35 => AND_ZPAGEX,
-            0x2D => AND_ABS,
-            0x3D => AND_ABSX,
-            0x39 => AND_ABSY,
-            0x21 => AND_INDX,
-            0x31 => AND_INDY,
-            0xA9 => LDA_IMM,
-            0xA5 => LDA_ZPAGE,
-            0xB5 => LDA_ZPAGEX,
-            0xAD => LDA_ABS,
-            0xBD => LDA_ABSX,
-            0xB9 => LDA_ABSY,
-            0xA1 => LDA_INDX,
-            0xB1 => LDA_INDY,
-            _ => Unimplemented,
+macro_rules! opcodes {
+    ( $( ($opcode:tt, $id:expr, $addressingMode:expr) ),* ) => {
+        /// All of the opcodes available on the NES.
+        #[allow(non_camel_case_types)]
+        #[derive(Clone, Debug)]
+        pub enum Opcode {
+            $(
+                $opcode = $id,
+            )*
+            Unimplemented,
         }
-    }
+
+        impl Opcode {
+            /// Decodes an opcode into an executable CPU instruction.
+            pub fn decode(self) -> Instruction {
+                use instruction::AddressingMode::*;
+                use opcode::Opcode::*;
+
+                match self {
+                    $(
+                        $opcode => Instruction::new(self, Some($addressingMode)),
+                    )*
+                    Unimplemented => panic!("Unimplemented opcode"),
+                }
+            }
+        }
+
+        impl From<u8> for Opcode {
+            fn from(byte: u8) -> Self {
+                use self::Opcode::*;
+
+                match byte {
+                    $(
+                        $id => $opcode,
+                    )*
+                    _ => Unimplemented,
+                }
+            }
+        }
+    };
 }
+
+opcodes!(
+    // Add with Carry
+    (ADC_IMM, 0x69, Immediate),
+    (ADC_ZPAGE, 0x65, ZeroPage),
+    (ADC_ZPAGEX, 0x75, ZeroPageX),
+    (ADC_ABS, 0x6D, Absolute),
+    (ADC_ABSX, 0x7D, AbsoluteX),
+    (ADC_ABSY, 0x79, AbsoluteY),
+    (ADC_INDX, 0x61, IndirectX),
+    (ADC_INDY, 0x71, IndirectY),
+    // Logical AND
+    (AND_IMM, 0x29, Immediate),
+    (AND_ZPAGE, 0x25, ZeroPage),
+    (AND_ZPAGEX, 0x35, ZeroPageX),
+    (AND_ABS, 0x2D, Absolute),
+    (AND_ABSX, 0x3D, AbsoluteX),
+    (AND_ABSY, 0x39, AbsoluteY),
+    (AND_INDX, 0x21, IndirectX),
+    (AND_INDY, 0x31, IndirectY),
+    // Load Accumulator
+    (LDA_IMM, 0xA9, Immediate),
+    (LDA_ZPAGE, 0xA5, ZeroPage),
+    (LDA_ZPAGEX, 0xB5, ZeroPageX),
+    (LDA_ABS, 0xAD, Absolute),
+    (LDA_ABSX, 0xBD, AbsoluteX),
+    (LDA_ABSY, 0xB9, AbsoluteY),
+    (LDA_INDX, 0xA1, IndirectX),
+    (LDA_INDY, 0xB1, IndirectY)
+);

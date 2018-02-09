@@ -113,11 +113,11 @@ impl CPU {
     /// Execute a single instruction cycle.
     fn step(&mut self) {
         // Read the next opcode to be executed.
-        let opcode = self.read_u8(self.pc).into();
+        let opcode: Opcode = self.read_u8(self.pc).into();
         self.pc += 1;
 
         // Decode the opcode into an executable instruction.
-        let instruction = CPU::decode(opcode);
+        let instruction = opcode.decode();
 
         // If the instruction requires an operand, use the specified addressing
         // mode to determine its address.
@@ -185,39 +185,6 @@ impl CPU {
         // TODO: reset here (e.g. a, x, y, to 0)?
         loop {
             self.step();
-        }
-    }
-
-    /// Decodes an opcode into an executable CPU instruction.
-    fn decode(opcode: Opcode) -> Instruction {
-        use instruction::AddressingMode::*;
-
-        match opcode {
-            ADC_IMM => Instruction::new(opcode, Some(Immediate)),
-            ADC_ZPAGE => Instruction::new(opcode, Some(ZeroPage)),
-            ADC_ZPAGEX => Instruction::new(opcode, Some(ZeroPageX)),
-            ADC_ABS => Instruction::new(opcode, Some(Absolute)),
-            ADC_ABSX => Instruction::new(opcode, Some(AbsoluteX)),
-            ADC_ABSY => Instruction::new(opcode, Some(AbsoluteY)),
-            ADC_INDX => Instruction::new(opcode, Some(IndirectX)),
-            ADC_INDY => Instruction::new(opcode, Some(IndirectY)),
-            AND_IMM => Instruction::new(opcode, Some(Immediate)),
-            AND_ZPAGE => Instruction::new(opcode, Some(ZeroPage)),
-            AND_ZPAGEX => Instruction::new(opcode, Some(ZeroPageX)),
-            AND_ABS => Instruction::new(opcode, Some(Absolute)),
-            AND_ABSX => Instruction::new(opcode, Some(AbsoluteX)),
-            AND_ABSY => Instruction::new(opcode, Some(AbsoluteY)),
-            AND_INDX => Instruction::new(opcode, Some(IndirectX)),
-            AND_INDY => Instruction::new(opcode, Some(IndirectY)),
-            LDA_IMM => Instruction::new(opcode, Some(Immediate)),
-            LDA_ZPAGE => Instruction::new(opcode, Some(ZeroPage)),
-            LDA_ZPAGEX => Instruction::new(opcode, Some(ZeroPageX)),
-            LDA_ABS => Instruction::new(opcode, Some(Absolute)),
-            LDA_ABSX => Instruction::new(opcode, Some(AbsoluteX)),
-            LDA_ABSY => Instruction::new(opcode, Some(AbsoluteY)),
-            LDA_INDX => Instruction::new(opcode, Some(IndirectX)),
-            LDA_INDY => Instruction::new(opcode, Some(IndirectY)),
-            Unimplemented => panic!("Unimplemented opcode"),
         }
     }
 
