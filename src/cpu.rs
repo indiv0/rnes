@@ -1,4 +1,3 @@
-use instruction::Instruction;
 use memory::{Address, Memory, NESMemory};
 use opcode::Opcode;
 use opcode::Opcode::*;
