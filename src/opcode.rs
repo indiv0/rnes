@@ -73,6 +73,9 @@ opcodes!(
     (BCS, 0xB0, Relative),
     // Branch if Equal
     (BEQ, 0xF0, Relative),
+    // Bit Test
+    (BIT_ZPAGE, 0x24, ZeroPage),
+    (BIT_ABS, 0x2C, Absolute),
     // Load Accumulator
     (LDA_IMM, 0xA9, Immediate),
     (LDA_ZPAGE, 0xA5, ZeroPage),

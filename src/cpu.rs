@@ -191,6 +191,11 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.beq(addr);
             },
+            BIT_ZPAGE | BIT_ABS => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.bit(addr);
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -489,6 +494,21 @@ impl CPU {
             // Add the signed relative value to the program counter.
             self.pc += (addr ^ 0x80) - 0x80;
         }
+    }
+
+    /// Tests if one or more bits are set in a target memory location.
+    fn bit(&mut self, addr: Address) {
+        let value = self.read_u8(addr);
+
+        // AND the value of the mask pattern in A with the value in memory to
+        // set or clear the zero flag.
+        let zero = (self.a & value) == 0;
+        self.set_zero(zero);
+
+        // Bit 6 of the value is copied into the V flag.
+        self.set_overflow(bit_get(value, 7));
+        // Bit 7 of the value is copied into the N flag.
+        self.set_negative(bit_get(value, 6));
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -791,6 +811,30 @@ mod tests {
         cpu.set_zero(false);
         cpu.step();
         assert_eq!(cpu.pc, 2);
+    }
+
+    #[test]
+    fn test_bit() {
+        let mut cpu = CPU::new();
+        cpu.a = 0xEA;
+
+        cpu.memory.store(0x0000, 0xEA);
+        cpu.bit(0x0000);
+        assert!(!cpu.zero());
+        assert!(cpu.overflow());
+        assert!(cpu.negative());
+
+        cpu.memory.store(0x0000, 0x28);
+        cpu.bit(0x0000);
+        assert!(!cpu.zero());
+        assert!(!cpu.overflow());
+        assert!(!cpu.negative());
+
+        cpu.memory.store(0x0000, 0x00);
+        cpu.bit(0x0000);
+        assert!(cpu.zero());
+        assert!(!cpu.overflow());
+        assert!(!cpu.negative());
     }
 
     #[test]
