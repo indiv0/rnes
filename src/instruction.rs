@@ -19,6 +19,9 @@ use opcode::Opcode;
 /// | (Indirect, X) | LDA ($02, X) | A <- M(PTR($02 + X)) |
 /// | (Indirect), Y | LDA ($02), Y | A <- M(PTR($02) + Y) |
 pub enum AddressingMode {
+    /// The source/destination of the instruction is implied by the instruction
+    /// itself (i.e. no operand).
+    Implicit,
     /// Operate directly on the accumulator.
     Accumulator,
     /// Operate on an 8-bit constant specified in the instruction.
