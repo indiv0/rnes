@@ -7,6 +7,7 @@ use opcode::Opcode;
 ///
 /// | Mode          | Instruction  | Action               |
 /// |---------------|--------------|----------------------|
+/// | Accumulator   | ASL A        | A <- A << 1          |
 /// | Immediate     | LDA #$EA     | A <- $EA             |
 /// | Zeropage      | LDA $02      | A <- M($02)          |
 /// | Zeropage, X   | LDA $02, X   | A <- M($02 + X)      |
@@ -17,6 +18,8 @@ use opcode::Opcode;
 /// | (Indirect, X) | LDA ($02, X) | A <- M(PTR($02 + X)) |
 /// | (Indirect), Y | LDA ($02), Y | A <- M(PTR($02) + Y) |
 pub enum AddressingMode {
+    /// Operate directly on the accumulator.
+    Accumulator,
     /// Operate on an 8-bit constant specified in the instruction.
     Immediate,
     /// Address to be accessed is an 8-bit operand pointing to a memory location

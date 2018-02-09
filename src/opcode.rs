@@ -61,6 +61,12 @@ opcodes!(
     (AND_ABSY, 0x39, AbsoluteY),
     (AND_INDX, 0x21, IndirectX),
     (AND_INDY, 0x31, IndirectY),
+    // Arithmetic shift left
+    (ASL_ACC, 0x0A, Accumulator),
+    (ASL_ZPAGE, 0x06, ZeroPage),
+    (ASL_ZPAGEX, 0x16, ZeroPageX),
+    (ASL_ABS, 0x0E, Absolute),
+    (ASL_ABSX, 0x1E, AbsoluteX),
     // Load Accumulator
     (LDA_IMM, 0xA9, Immediate),
     (LDA_ZPAGE, 0xA5, ZeroPage),

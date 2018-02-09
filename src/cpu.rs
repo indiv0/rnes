@@ -164,6 +164,17 @@ impl CPU {
                 self.and(addr);
                 return;
             },
+            ASL_ACC => {
+                self.asl(None);
+            },
+            ASL_ZPAGE |
+            ASL_ZPAGEX |
+            ASL_ABS |
+            ASL_ABSX => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.asl(Some(addr));
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -357,6 +368,7 @@ impl CPU {
 
     // Instructions
 
+    /// Performs an add with carry.
     fn adc(&mut self, addr: Address) {
         let arg = self.read_u8(addr);
         let (sum, overflow1) = self.a.overflowing_add(arg);
@@ -376,6 +388,7 @@ impl CPU {
         self.set_zero(zero);
     }
 
+    /// Performs a logical AND.
     fn and(&mut self, addr: Address) {
         let arg = self.read_u8(addr);
 
@@ -389,6 +402,33 @@ impl CPU {
         self.set_negative(negative);
     }
 
+    /// Shifts the contents of the accumulator or the specified memory address
+    /// one bit left.
+    fn asl(&mut self, addr: Option<Address>) {
+        let value = match addr {
+            Some(addr) => self.read_u8(addr),
+            None => self.a,
+        };
+
+        let carry = is_negative(value);
+
+        let res = value << 1;
+
+        // Bit 7 is placed in the carry flag.
+        self.set_carry(carry);
+        // Set if A = 0
+        let zero = self.a == 0;
+        self.set_zero(zero);
+        // Set if bit 7 of the result is set.
+        self.set_negative(bit_get(res, 7));
+
+        match addr {
+            Some(addr) => { self.memory.store(addr, res); },
+            None => self.a = res,
+        };
+    }
+
+    /// Loads a byte of memory into the accumulator.
     fn lda(&mut self, addr: Address) {
         let value = self.read_u8(addr);
         self.a = value;
@@ -613,6 +653,32 @@ mod tests {
         cpu.and(0x0000);
         assert_eq!(cpu.a, 0x00);
         assert!(cpu.zero());
+        assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_asl() {
+        let mut cpu = CPU::new();
+
+        cpu.a = 0xFF;
+        cpu.asl(None);
+        assert_eq!(cpu.a, 0xFE);
+        assert!(cpu.carry());
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.memory.store(0x0000, 0x0E);
+        cpu.asl(Some(0x0000));
+        assert_eq!(cpu.memory.fetch(0x0000), 0x1C);
+        assert!(!cpu.carry());
+        assert!(!cpu.zero());
+        assert!(!cpu.negative());
+
+        cpu.memory.store(0x0000, 0x80);
+        cpu.asl(Some(0x0000));
+        assert_eq!(cpu.memory.fetch(0x0000), 0x00);
+        assert!(cpu.carry());
+        assert!(!cpu.zero());
         assert!(!cpu.negative());
     }
 
