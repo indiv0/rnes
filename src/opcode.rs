@@ -20,7 +20,7 @@ macro_rules! opcodes {
 
                 match self {
                     $(
-                        $opcode => Instruction::new(self, Some($addressingMode)),
+                        $opcode => Instruction::new(self, $addressingMode),
                     )*
                     Unimplemented => panic!("Unimplemented opcode"),
                 }

@@ -111,6 +111,8 @@ impl CPU {
 
     /// Execute a single instruction cycle.
     fn step(&mut self) {
+        use instruction::AddressingMode::*;
+
         // Read the next opcode to be executed.
         let opcode: Opcode = self.read_u8(self.pc).into();
         self.pc += 1;
@@ -120,10 +122,8 @@ impl CPU {
 
         // If the instruction requires an operand, use the specified addressing
         // mode to determine its address.
-        let operand_addr = instruction.addressing_mode().map(|addressing_mode| {
-            use instruction::AddressingMode::*;
-
-            match *addressing_mode {
+        let operand_addr = Some(
+            match *instruction.addressing_mode() {
                 Immediate => self.addr_imm(),
                 ZeroPage => self.addr_zero_page(),
                 ZeroPageX => self.addr_zero_page_x(),
@@ -133,9 +133,12 @@ impl CPU {
                 AbsoluteY => self.addr_abs_y(),
                 IndirectX => self.addr_ind_x(),
                 IndirectY => self.addr_ind_y(),
-                _ => panic!("Unimplemented addressing mode"),
+                Implicit |
+                Indirect |
+                Accumulator |
+                _ZeroPageY => panic!("Unimplemented addressing mode"),
             }
-        });
+        );
 
         match *instruction.opcode() {
             ADC_IMM |

@@ -48,6 +48,14 @@ pub enum AddressingMode {
     /// following the instruction and adding the current value of register `Y`
     /// to it.
     AbsoluteY,
+    /// The 16-bit operand is used as the location of the least significant byte
+    /// of another 16-bit memory address, which is used as the real target of the
+    /// instruction.
+    ///
+    /// # Note
+    ///
+    /// JMP is the only instruction which uses this addressing mode.
+    Indirect,
     /// Address to be accessed is calculated by taking the 8-bit operand
     /// following the instruction, adding the current value of register `X` to
     /// it, and retrieving the value at the resulting memory address in the zero
@@ -63,14 +71,14 @@ pub enum AddressingMode {
 /// An executable instruction for the NES CPU.
 pub struct Instruction {
     opcode: Opcode,
-    addressing_mode: Option<AddressingMode>,
+    addressing_mode: AddressingMode,
 }
 
 impl Instruction {
     /// Constructs a new `Instruction`.
     pub fn new(
         opcode: Opcode,
-        addressing_mode: Option<AddressingMode>,
+        addressing_mode: AddressingMode,
     ) -> Self {
         Self {
             opcode,
@@ -84,7 +92,7 @@ impl Instruction {
     }
 
     /// Returns the addressing mode of the `Instruction`.
-    pub fn addressing_mode(&self) -> Option<&AddressingMode> {
-        self.addressing_mode.as_ref()
+    pub fn addressing_mode(&self) -> &AddressingMode {
+        &self.addressing_mode
     }
 }
