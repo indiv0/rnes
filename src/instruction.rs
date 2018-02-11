@@ -34,7 +34,7 @@ pub enum AddressingMode {
     ZeroPageX,
     /// Address to be accessed is a zero page address calculated by taking the
     /// 8-bit operand and adding the current value of the `Y` register to it.
-    _ZeroPageY,
+    ZeroPageY,
     /// Used by branch instructions; adds operand as a signed 8-bit offset to
     /// the program counter.
     Relative,

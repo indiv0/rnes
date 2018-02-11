@@ -136,7 +136,7 @@ impl CPU {
                 Implicit |
                 Indirect |
                 Accumulator |
-                _ZeroPageY => panic!("Unimplemented addressing mode"),
+                ZeroPageY => panic!("Unimplemented addressing mode"),
             }
         );
 
@@ -226,7 +226,66 @@ impl CPU {
                 self.lda(addr);
                 return;
             },
-            ref opcode => panic!("Unimplemented instruction: {:?}", opcode),
+            ref opcode @ BRK |
+            ref opcode @ BVC |
+            ref opcode @ BVS |
+            ref opcode @ CLC |
+            ref opcode @ CLD |
+            ref opcode @ CLI |
+            ref opcode @ CLV |
+            ref opcode @ CMP_IMM |
+            ref opcode @ CMP_ZPAGE |
+            ref opcode @ CMP_ZPAGEX |
+            ref opcode @ CMP_ABS |
+            ref opcode @ CMP_ABSX |
+            ref opcode @ CMP_ABSY |
+            ref opcode @ CMP_INDX |
+            ref opcode @ CMP_INDY |
+            ref opcode @ CPX_IMM |
+            ref opcode @ CPX_ZPAGE |
+            ref opcode @ CPX_ABS |
+            ref opcode @ CPY_IMM |
+            ref opcode @ CPY_ZPAGE |
+            ref opcode @ CPY_ABS |
+            ref opcode @ DEC_ZPAGE |
+            ref opcode @ DEC_ZPAGEX |
+            ref opcode @ DEC_ABS |
+            ref opcode @ DEC_ABSX |
+            ref opcode @ DEX |
+            ref opcode @ DEY |
+            ref opcode @ EOR_IMM |
+            ref opcode @ EOR_ZPAGE |
+            ref opcode @ EOR_ZPAGEX |
+            ref opcode @ EOR_ABS |
+            ref opcode @ EOR_ABSX |
+            ref opcode @ EOR_ABSY |
+            ref opcode @ EOR_INDX |
+            ref opcode @ EOR_INDY |
+            ref opcode @ INC_ZPAGE |
+            ref opcode @ INC_ZPAGEX |
+            ref opcode @ INC_ABS |
+            ref opcode @ INC_ABSX |
+            ref opcode @ INX |
+            ref opcode @ INY |
+            ref opcode @ JMP_ABS |
+            ref opcode @ JMP_IND |
+            ref opcode @ JSR |
+            ref opcode @ LDX_IMM |
+            ref opcode @ LDX_ZPAGE |
+            ref opcode @ LDX_ZPAGEY |
+            ref opcode @ LDX_ABS |
+            ref opcode @ LDX_ABSY |
+            ref opcode @ LDY_IMM |
+            ref opcode @ LDY_ZPAGE |
+            ref opcode @ LDY_ZPAGEX |
+            ref opcode @ LDY_ABS |
+            ref opcode @ LDY_ABSX |
+            ref opcode @ LSR_ACC |
+            ref opcode @ LSR_ZPAGE |
+            ref opcode @ LSR_ZPAGEX |
+            ref opcode @ LSR_ABS |
+            ref opcode @ LSR_ABSX => panic!("Unimplemented opcode: {:?}", opcode),
+            ref opcode => panic!("Unknown opcode: {:?}", opcode),
         }
     }
 
