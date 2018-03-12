@@ -374,6 +374,13 @@ impl CPU {
         self.read_u8(addr)
     }
 
+    /// Retrieves a value "index" positions from the top without removing it.
+    fn peek(&self, index: u8) -> u8 {
+        // Calculate the address we wish to peek at.
+        let addr = 0x0100 | self.sp.wrapping_add(1).wrapping_add(index) as u16;
+        self.read_u8(addr)
+    }
+
     fn _reset(&mut self) {
         // A, X, Y are not affected by reset.
 
@@ -736,6 +743,16 @@ mod tests {
     }
 
     #[test]
+    fn test_stack_peek() {
+        let mut cpu = CPU::new();
+        cpu.push(0xAA);
+        cpu.push(0xBB);
+
+        assert_eq!(cpu.peek(0), 0xBB);
+        assert_eq!(cpu.peek(1), 0xAA);
+    }
+
+    #[test]
     fn test_stack_wrapping_behaviour() {
         let mut cpu = CPU::new();
 
@@ -747,6 +764,9 @@ mod tests {
         cpu.push(0xAA);
         assert_eq!(cpu.sp, 0xFF);
         assert_eq!(cpu.read_u8(0x0100), 0xAA);
+        cpu.push(0xBB);
+        assert_eq!(cpu.peek(0), 0xBB);
+        assert_eq!(cpu.peek(1), 0xAA);
     }
 
     #[test]
