@@ -220,6 +220,11 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.bvc(addr);
             },
+            BVS => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.bvs(addr);
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -232,7 +237,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ BVS |
             ref opcode @ CLC |
             ref opcode @ CLD |
             ref opcode @ CLI |
@@ -698,6 +702,14 @@ impl CPU {
     /// location if the overflow flag is clear.
     fn bvc(&mut self, addr: Address) {
         if !self.overflow() {
+            self.branch(addr);
+        }
+    }
+
+    /// Adds the relative displacement to the program counter to branch, if
+    /// the overflow flag is set.
+    fn bvs(&mut self, addr: Address) {
+        if self.overflow() {
             self.branch(addr);
         }
     }
@@ -1175,6 +1187,22 @@ mod tests {
 
         cpu.pc = 0;
         cpu.set_overflow(true);
+        cpu.step();
+        assert_eq!(cpu.pc, 2);
+    }
+
+    #[test]
+    fn test_bvs() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, BVS as u8);
+        cpu.memory.store(0x0001, 0x04);
+
+        cpu.set_overflow(true);
+        cpu.step();
+        assert_eq!(cpu.pc, 4);
+
+        cpu.pc = 0;
+        cpu.set_overflow(false);
         cpu.step();
         assert_eq!(cpu.pc, 2);
     }
