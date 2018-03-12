@@ -352,8 +352,8 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.ora(addr);
             },
-            ref opcode @ PHA |
-            ref opcode @ PHP |
+            PHA => self.pha(),
+            PHP => self.php(),
             ref opcode @ PLA |
             ref opcode @ PLP |
             ref opcode @ ROL_ACC |
@@ -1093,6 +1093,18 @@ impl CPU {
         let a = self.a;
         self.set_zero(a == 0);
         self.set_negative(is_negative(a));
+    }
+
+    /// Pushes a copy of the accumulator onto the stack.
+    fn pha(&mut self) {
+        let a = self.a;
+        self.push(a);
+    }
+
+    /// Pushes a copy of the status flags onto the stack.
+    fn php(&mut self) {
+        let p = self.p;
+        self.push(p);
     }
 }
 
@@ -2160,6 +2172,26 @@ mod tests {
         assert_eq!(cpu.a, 0x00);
         assert!(cpu.zero());
         assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_pha() {
+        let mut cpu = CPU::new();
+
+        cpu.a = 0xFF;
+        assert_eq!(cpu.peek(0), 0x00);
+        cpu.pha();
+        assert_eq!(cpu.peek(0), 0xFF);
+    }
+
+    #[test]
+    fn test_php() {
+        let mut cpu = CPU::new();
+
+        cpu.p = 0xFF;
+        assert_eq!(cpu.peek(0), 0x00);
+        cpu.php();
+        assert_eq!(cpu.peek(0), 0xFF);
     }
 
     #[test]
