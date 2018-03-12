@@ -12,7 +12,7 @@ const FLAG_CARRY: u8 = 0;
 const FLAG_ZERO: u8 = 1;
 const _FLAG_IRQ_DISABLE: u8 = 2;
 const _FLAG_DECIMAL_MODE: u8 = 3;
-const _FLAG_BREAK: u8 = 5;
+const FLAG_BREAK: u8 = 5;
 const FLAG_OVERFLOW: u8 = 6;
 const FLAG_NEGATIVE: u8 = 7;
 
@@ -313,6 +313,16 @@ impl CPU {
     /// Sets the value of the "zero" flag.
     fn set_zero(&mut self, zero: bool) {
         self.p = bit_set(self.p, FLAG_ZERO, zero);
+    }
+
+    /// Returns the value of the "break" flag.
+    fn break_flag(&self) -> bool {
+        bit_get(self.p, FLAG_BREAK)
+    }
+
+    /// Sets the value of the "break" flag.
+    fn set_break(&mut self, brk: bool) {
+        self.p = bit_set(self.p, FLAG_BREAK, brk);
     }
 
     /// Returns the value of the "overflow" flag.
@@ -688,6 +698,11 @@ mod tests {
         assert!(!cpu.zero());
         cpu.set_zero(true);
         assert!(cpu.zero());
+
+        cpu.set_break(false);
+        assert!(!cpu.break_flag());
+        cpu.set_break(true);
+        assert!(cpu.break_flag());
 
         cpu.set_overflow(false);
         assert!(!cpu.overflow());
