@@ -354,8 +354,8 @@ impl CPU {
             },
             PHA => self.pha(),
             PHP => self.php(),
-            ref opcode @ PLA |
-            ref opcode @ PLP |
+            PLA => self.pla(),
+            PLP => self.plp(),
             ref opcode @ ROL_ACC |
             ref opcode @ ROL_ZPAGE |
             ref opcode @ ROL_ZPAGEX |
@@ -1105,6 +1105,21 @@ impl CPU {
     fn php(&mut self) {
         let p = self.p;
         self.push(p);
+    }
+
+    /// Pulls an 8-bit value from the stack into the accumulator.
+    /// Sets the zero and negative flags as necessary.
+    fn pla(&mut self) {
+        self.a = self.pop();
+
+        let a = self.a;
+        self.set_zero(a == 0);
+        self.set_negative(is_negative(a));
+    }
+
+    /// Pulls an 8-bit value from the stack into the processor flags.
+    fn plp(&mut self) {
+        self.p = self.pop();
     }
 }
 
@@ -2192,6 +2207,28 @@ mod tests {
         assert_eq!(cpu.peek(0), 0x00);
         cpu.php();
         assert_eq!(cpu.peek(0), 0xFF);
+    }
+
+    #[test]
+    fn test_pla() {
+        let mut cpu = CPU::new();
+
+        cpu.a = 0x00;
+        cpu.push(0xFF);
+        assert_eq!(cpu.a, 0x00);
+        cpu.pla();
+        assert_eq!(cpu.a, 0xFF);
+    }
+
+    #[test]
+    fn test_plp() {
+        let mut cpu = CPU::new();
+
+        cpu.p = 0x00;
+        cpu.push(0xFF);
+        assert_eq!(cpu.p, 0x00);
+        cpu.plp();
+        assert_eq!(cpu.p, 0xFF);
     }
 
     #[test]
