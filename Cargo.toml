@@ -12,3 +12,4 @@ name = "rnes"
 path = "src/main.rs"
 
 [dependencies]
+clippy = { version = "0.0", optional = true }
