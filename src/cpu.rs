@@ -340,14 +340,18 @@ impl CPU {
                 self.lsr_mem(addr);
             },
             NOP => self.nop(),
-            ref opcode @ ORA_IMM |
-            ref opcode @ ORA_ZPAGE |
-            ref opcode @ ORA_ZPAGEX |
-            ref opcode @ ORA_ABS |
-            ref opcode @ ORA_ABSX |
-            ref opcode @ ORA_ABSY |
-            ref opcode @ ORA_INDX |
-            ref opcode @ ORA_INDY |
+            ORA_IMM |
+            ORA_ZPAGE |
+            ORA_ZPAGEX |
+            ORA_ABS |
+            ORA_ABSX |
+            ORA_ABSY |
+            ORA_INDX |
+            ORA_INDY => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.ora(addr);
+            },
             ref opcode @ PHA |
             ref opcode @ PHP |
             ref opcode @ PLA |
@@ -1077,6 +1081,19 @@ impl CPU {
 
     /// Causes no changes to the processor (except the normal incrementing of the program counter).
     fn nop(&self) {}
+
+    /// Performs an inclusive OR on the contents of the accumulator and the byte
+    /// value at the specified memory location.
+    /// Sets the zero and negative flags as necessary.
+    fn ora(&mut self, addr: Address) {
+        let value = self.read_u8(addr);
+
+        self.a |= value;
+
+        let a = self.a;
+        self.set_zero(a == 0);
+        self.set_negative(is_negative(a));
+    }
 }
 
 impl Default for CPU {
@@ -2120,6 +2137,29 @@ mod tests {
         assert_eq!(cpu.p, cpu2.p);
         assert_eq!(cpu.pc, cpu2.pc);
         assert_eq!(cpu.sp, cpu2.sp);
+    }
+
+    #[test]
+    fn test_ora() {
+        let mut cpu = CPU::new();
+
+        cpu.a = 0xCF;
+        cpu.memory.store(0x0000, 0x3F);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.ora(0x0000);
+        assert_eq!(cpu.a, 0xFF);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.a = 0x00;
+        cpu.memory.store(0x0000, 0x00);
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.eor(0x0000);
+        assert_eq!(cpu.a, 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
     }
 
     #[test]
