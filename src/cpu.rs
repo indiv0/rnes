@@ -290,12 +290,16 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.eor(addr);
             },
-            ref opcode @ INC_ZPAGE |
-            ref opcode @ INC_ZPAGEX |
-            ref opcode @ INC_ABS |
-            ref opcode @ INC_ABSX |
-            ref opcode @ INX |
-            ref opcode @ INY |
+            INC_ZPAGE |
+            INC_ZPAGEX |
+            INC_ABS |
+            INC_ABSX => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.inc(addr);
+            },
+            INX => self.inx(),
+            INY => self.iny(),
             ref opcode @ JMP_ABS |
             ref opcode @ JMP_IND |
             ref opcode @ JSR |
@@ -932,6 +936,39 @@ impl CPU {
         let a = self.a;
         self.set_zero(a == 0);
         self.set_negative(is_negative(a));
+    }
+
+    /// Adds one to the value at the specified memory location, setting the zero
+    /// and negative flags as appropriate.
+    fn inc(&mut self, addr: Address) {
+        let mut value = self.read_u8(addr);
+
+        value = value.wrapping_add(1);
+
+        self.set_zero(value == 0);
+        self.set_negative(is_negative(value));
+
+        self.write_u8(addr, value);
+    }
+
+    /// Adds one to the X register, setting the zero and negative flags as
+    /// appropriate.
+    fn inx(&mut self) {
+        self.x = self.x.wrapping_add(1);
+
+        let x = self.x;
+        self.set_zero(x == 0);
+        self.set_negative(is_negative(x));
+    }
+
+    /// Adds one to the Y register, setting the zero and negative flags as
+    /// appropriate.
+    fn iny(&mut self) {
+        self.y = self.y.wrapping_add(1);
+
+        let y = self.y;
+        self.set_zero(y == 0);
+        self.set_negative(is_negative(y));
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1678,6 +1715,69 @@ mod tests {
         assert_eq!(cpu.a, 0x00);
         assert!(cpu.zero());
         assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_inc() {
+        let mut cpu = CPU::new();
+
+        cpu.memory.store(0x0000, 0xFF);
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.inc(0x0000);
+        assert_eq!(cpu.memory.fetch(0x0000), 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+
+        cpu.memory.store(0x0000, 0xFE);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.inc(0x0000);
+        assert_eq!(cpu.memory.fetch(0x0000), 0xFF);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+    }
+
+    #[test]
+    fn test_inx() {
+        let mut cpu = CPU::new();
+
+        cpu.x = 0xFF;
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.inx();
+        assert_eq!(cpu.x, 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+
+        cpu.x = 0xFE;
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.inx();
+        assert_eq!(cpu.x, 0xFF);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+    }
+
+    #[test]
+    fn test_iny() {
+        let mut cpu = CPU::new();
+
+        cpu.y = 0xFF;
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.iny();
+        assert_eq!(cpu.y, 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+
+        cpu.y = 0xFE;
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.iny();
+        assert_eq!(cpu.y, 0xFF);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
     }
 
     #[test]
