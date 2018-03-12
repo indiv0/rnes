@@ -329,11 +329,15 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.ldy(addr);
             },
-            ref opcode @ LSR_ACC |
-            ref opcode @ LSR_ZPAGE |
-            ref opcode @ LSR_ZPAGEX |
-            ref opcode @ LSR_ABS |
-            ref opcode @ LSR_ABSX |
+            LSR_ACC => self.lsr_acc(),
+            LSR_ZPAGE |
+            LSR_ZPAGEX |
+            LSR_ABS |
+            LSR_ABSX => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.lsr_mem(addr);
+            },
             ref opcode @ NOP |
             ref opcode @ ORA_IMM |
             ref opcode @ ORA_ZPAGE |
@@ -449,6 +453,17 @@ impl CPU {
                 self.set_negative(false);
             }
         }
+    }
+
+    /// Shifts the bits of the specified value to the right, returning the
+    /// result and setting the carry, zero, and negative status flags as
+    /// necessary.
+    fn lsr(&mut self, value: u8) -> u8 {
+        self.set_carry(bit_get(value, 0));
+        let res = value >> 1;
+        self.set_zero(res == 0);
+        self.set_negative(is_negative(res));
+        res
     }
 
     // Processor status
@@ -1041,6 +1056,22 @@ impl CPU {
 
         self.set_zero(value == 0);
         self.set_negative(is_negative(value));
+    }
+
+    /// Shift each of the bits in the accumulator one place to the right.
+    /// Sets the carry, zero, and negative flags as necessary.
+    fn lsr_acc(&mut self) {
+        let a = self.a;
+        self.a = self.lsr(a);
+    }
+
+    /// Shift each of the bits of the value at the specified address one place
+    /// to the right.
+    /// Sets the carry, zero, and negative flags as necessary.
+    fn lsr_mem(&mut self, addr: Address) {
+        let value = self.read_u8(addr);
+        let res = self.lsr(value);
+        self.write_u8(addr, res);
     }
 }
 
