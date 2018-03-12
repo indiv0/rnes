@@ -300,8 +300,12 @@ impl CPU {
             },
             INX => self.inx(),
             INY => self.iny(),
-            ref opcode @ JMP_ABS |
-            ref opcode @ JMP_IND |
+            JMP_ABS |
+            JMP_IND => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.jmp(addr);
+            },
             ref opcode @ JSR |
             ref opcode @ LDX_IMM |
             ref opcode @ LDX_ZPAGE |
@@ -969,6 +973,23 @@ impl CPU {
         let y = self.y;
         self.set_zero(y == 0);
         self.set_negative(is_negative(y));
+    }
+
+    /// Sets the program to the address specified.
+    ///
+    /// # Note
+    ///
+    // From: http://obelisk.me.uk/6502/reference.html#JMP
+    /// An original 6502 has does not correctly fetch the target address if the
+    /// indirect vector falls on a page boundary (e.g. $xxFF where xx is any
+    /// value from $00 to $FF).
+    /// In this case fetches the LSB from $xxFF as expected but takes the MSB
+    /// from $xx00.
+    /// This is fixed in some later chips like the 65SC02 so for compatibility
+    /// always ensure the indirect vector is not at the end of the page.
+    fn jmp(&mut self, addr: Address) {
+        let target_addr = self.read_u16(addr);
+        self.pc = target_addr;
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1778,6 +1799,17 @@ mod tests {
         assert_eq!(cpu.y, 0xFF);
         assert!(!cpu.zero());
         assert!(cpu.negative());
+    }
+
+    #[test]
+    fn test_jmp() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, 0xBB);
+        cpu.memory.store(0x0001, 0xAA);
+
+        assert_eq!(cpu.pc, 0x0000);
+        cpu.jmp(0x0000);
+        assert_eq!(cpu.pc, 0xAABB);
     }
 
     #[test]
