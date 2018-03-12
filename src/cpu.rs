@@ -225,6 +225,7 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.bvs(addr);
             },
+            CLC => self.clc(),
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -237,7 +238,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ CLC |
             ref opcode @ CLD |
             ref opcode @ CLI |
             ref opcode @ CLV |
@@ -712,6 +712,11 @@ impl CPU {
         if self.overflow() {
             self.branch(addr);
         }
+    }
+
+    /// Sets the carry flag to zero.
+    fn clc(&mut self) {
+        self.set_carry(false);
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1205,6 +1210,17 @@ mod tests {
         cpu.set_overflow(false);
         cpu.step();
         assert_eq!(cpu.pc, 2);
+    }
+
+    #[test]
+    fn test_clc() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, CLC as u8);
+        cpu.set_carry(true);
+
+        assert!(cpu.carry());
+        cpu.step();
+        assert!(!cpu.carry());
     }
 
     #[test]
