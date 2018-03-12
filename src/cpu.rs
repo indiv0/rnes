@@ -83,7 +83,7 @@ pub struct CPU {
     ///
     /// The top 8 bits of the stack pointer are hard-coded to `00000001`, so the
     /// stack pointer really has an 8-bit address space.
-    _sp: u8,
+    sp: u8,
 
     memory: NESMemory,
 }
@@ -104,7 +104,7 @@ impl CPU {
             y: 0,
             p: CPU_STATUS_REGISTER_INITIAL_VALUE,
             pc: 0,
-            _sp: CPU_STACK_POINTER_INITIAL_VALUE,
+            sp: CPU_STACK_POINTER_INITIAL_VALUE,
             memory,
         }
     }
@@ -335,11 +335,40 @@ impl CPU {
         self.p = bit_set(self.p, FLAG_NEGATIVE, negative);
     }
 
+    /// Returns the value of the stack pointer as an absolute address value.
+    fn sp(&self) -> u16 {
+        // Compute the address of the stack pointer;
+        // the top 8 bits are hard-coded to be equal to 0b0000_0001.
+        0x0100 | self.sp as u16
+    }
+
+    /// Pushes a value to the stack.
+    ///
+    /// The stack is implemented as a descending stack, so the stack pointer
+    /// is decremented after this operation.
+    fn push(&mut self, value: u8) {
+        // Push the value onto the stack and decrement the stack pointer.
+        let addr = self.sp();
+        self.sp = self.sp.wrapping_sub(1);
+        self.write_u8(addr, value);
+    }
+
+    /// Pops a value from the stack.
+    ///
+    /// The stack is implemented as a descending stack, so the stack pointer
+    /// is incremented after this operation.
+    fn pop(&mut self) -> u8 {
+        // Increment the stack pointer and pop the value from the stack.
+        self.sp = self.sp.wrapping_add(1);
+        let addr = self.sp();
+        self.read_u8(addr)
+    }
+
     fn _reset(&mut self) {
         // A, X, Y are not affected by reset.
 
         // Decrement S by 3, but do not write anything to the stack.
-        self._sp -= 3;
+        self.sp.wrapping_sub(3);
 
         // Set the I (IRQ disable) flag to true).
         self.p |= 0x04;
@@ -374,6 +403,13 @@ impl CPU {
         let low = self.read_u8(addr) as u16;
         let high = self.read_u8(addr + 1) as u16;
         high << 8 | low
+    }
+
+    // Memory write
+
+    /// Writes a single `u8` value to the specified memory address.
+    fn write_u8(&mut self, addr: Address, value: u8) {
+        self.memory.store(addr, value);
     }
 
     // Memory addressing
@@ -637,7 +673,7 @@ fn is_negative(value: u8) -> bool {
 mod tests {
     use memory::Memory;
     use opcode::Opcode::*;
-    use super::{bit_set, bit_get, CPU};
+    use super::{bit_set, bit_get, CPU, CPU_STACK_POINTER_INITIAL_VALUE};
 
     #[test]
     fn test_status_register() {
@@ -665,6 +701,40 @@ mod tests {
     }
 
     #[test]
+    fn test_stack_push() {
+        let mut cpu = CPU::new();
+
+        cpu.push(0xAA);
+        cpu.push(0xBB);
+        assert_eq!(cpu.read_u8(0x01FD), 0xAA);
+        assert_eq!(cpu.read_u8(0x01FC), 0xBB);
+        assert_eq!(cpu.sp, CPU_STACK_POINTER_INITIAL_VALUE.wrapping_sub(2));
+    }
+
+    #[test]
+    fn test_stack_pop() {
+        let mut cpu = CPU::new();
+        cpu.push(0xAA);
+
+        assert_eq!(cpu.pop(), 0xAA);
+        assert_eq!(cpu.sp, CPU_STACK_POINTER_INITIAL_VALUE);
+    }
+
+    #[test]
+    fn test_stack_wrapping_behaviour() {
+        let mut cpu = CPU::new();
+
+        // Pop enough times to reach stack address 0x100.
+        cpu.pop();
+        cpu.pop();
+        cpu.pop();
+        assert_eq!(cpu.sp, 0x00);
+        cpu.push(0xAA);
+        assert_eq!(cpu.sp, 0xFF);
+        assert_eq!(cpu.read_u8(0x0100), 0xAA);
+    }
+
+    #[test]
     fn test_read_u8() {
         let mut cpu = CPU::new();
         cpu.memory.store(0x1000, 0xFF);
@@ -679,6 +749,14 @@ mod tests {
         cpu.memory.store(0x1001, 0xAB);
 
         assert_eq!(cpu.read_u16(0x1000), 0xABCD);
+    }
+
+    #[test]
+    fn test_write_u8() {
+        let mut cpu = CPU::new();
+
+        cpu.write_u8(0x0010, 0xAA);
+        assert_eq!(cpu.memory.fetch(0x0010), 0xAA);
     }
 
     #[test]
