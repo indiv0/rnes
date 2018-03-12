@@ -359,8 +359,8 @@ impl CPU {
     fn push(&mut self, value: u8) {
         // Push the value onto the stack and decrement the stack pointer.
         let addr = self.sp();
-        self.sp = self.sp.wrapping_sub(1);
         self.write_u8(addr, value);
+        self.sp = self.sp.wrapping_sub(1);
     }
 
     /// Pops a value from the stack.
