@@ -306,7 +306,11 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.jmp(addr);
             },
-            ref opcode @ JSR |
+            JSR => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.jsr(addr);
+            },
             ref opcode @ LDX_IMM |
             ref opcode @ LDX_ZPAGE |
             ref opcode @ LDX_ZPAGEY |
@@ -990,6 +994,16 @@ impl CPU {
     fn jmp(&mut self, addr: Address) {
         let target_addr = self.read_u16(addr);
         self.pc = target_addr;
+    }
+
+    /// Pushes the address (minus one) of the return location to the stack and
+    /// then sets the program counter to the target memory address.
+    fn jsr(&mut self, addr: Address) {
+        let return_addr = self.pc.wrapping_sub(1);
+        self.push((return_addr >> 8) as u8);
+        self.push(return_addr as u8);
+
+        self.pc = self.read_u16(addr);
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1810,6 +1824,20 @@ mod tests {
         assert_eq!(cpu.pc, 0x0000);
         cpu.jmp(0x0000);
         assert_eq!(cpu.pc, 0xAABB);
+    }
+
+    #[test]
+    fn test_jsr() {
+        let mut cpu = CPU::new();
+        cpu.pc = 0x0220;
+        cpu.memory.store(0x0220, 0xBB);
+        cpu.memory.store(0x0221, 0xAA);
+
+        assert_eq!(cpu.pc, 0x0220);
+        cpu.jsr(0x0220);
+        assert_eq!(cpu.pc, 0xAABB);
+        assert_eq!(cpu.peek(0), 0x1F);
+        assert_eq!(cpu.peek(1), 0x02);
     }
 
     #[test]
