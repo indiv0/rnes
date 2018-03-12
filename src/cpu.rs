@@ -16,6 +16,9 @@ const FLAG_BREAK: u8 = 5;
 const FLAG_OVERFLOW: u8 = 6;
 const FLAG_NEGATIVE: u8 = 7;
 
+// IRQ/BRK vector memory address.
+const IRQ_VECTOR_ADDR: Address = 0xFFFE;
+
 /// An implementation of the NES CPU.
 ///
 /// # Architecture
@@ -122,23 +125,21 @@ impl CPU {
 
         // If the instruction requires an operand, use the specified addressing
         // mode to determine its address.
-        let operand_addr = Some(
-            match *instruction.addressing_mode() {
-                Immediate => self.addr_imm(),
-                ZeroPage => self.addr_zero_page(),
-                ZeroPageX => self.addr_zero_page_x(),
-                Relative => self.relative(),
-                Absolute => self.addr_abs(),
-                AbsoluteX => self.addr_abs_x(),
-                AbsoluteY => self.addr_abs_y(),
-                IndirectX => self.addr_ind_x(),
-                IndirectY => self.addr_ind_y(),
-                Implicit |
-                Indirect |
-                Accumulator |
-                ZeroPageY => panic!("Unimplemented addressing mode"),
-            }
-        );
+        let operand_addr = match *instruction.addressing_mode() {
+            Immediate => Some(self.addr_imm()),
+            ZeroPage => Some(self.addr_zero_page()),
+            ZeroPageX => Some(self.addr_zero_page_x()),
+            Relative => Some(self.relative()),
+            Absolute => Some(self.addr_abs()),
+            AbsoluteX => Some(self.addr_abs_x()),
+            AbsoluteY => Some(self.addr_abs_y()),
+            IndirectX => Some(self.addr_ind_x()),
+            IndirectY => Some(self.addr_ind_y()),
+            Implicit => None,
+            Indirect |
+            Accumulator |
+            ZeroPageY => panic!("Unimplemented addressing mode"),
+        };
 
         match *instruction.opcode() {
             ADC_IMM |
@@ -213,6 +214,7 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.bpl(addr);
             },
+            BRK => self.brk(),
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -225,7 +227,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ BRK |
             ref opcode @ BVC |
             ref opcode @ BVS |
             ref opcode @ CLC |
@@ -665,6 +666,28 @@ impl CPU {
         }
     }
 
+    /// Generates an interrupt request.
+    ///
+    /// The program counter and processor status are pushed onto the stack, the
+    /// IRQ interrupt vector is read into the program counter, and the break
+    /// flag is set to `true`.
+    fn brk(&mut self) {
+        // Push the program counter onto the stack.
+        let pc = self.pc;
+        self.push((pc >> 8) as u8);
+        self.push(pc as u8);
+
+        // Push the processor status onto the stack.
+        let p = self.p;
+        self.push(p);
+
+        // Load the IRQ interrupt vector into the PC.
+        self.pc = self.read_u16(IRQ_VECTOR_ADDR);
+
+        // Set the break flag in the status to 1.
+        self.set_break(true);
+    }
+
     /// Loads a byte of memory into the accumulator.
     fn lda(&mut self, addr: Address) {
         let value = self.read_u8(addr);
@@ -696,7 +719,9 @@ fn is_negative(value: u8) -> bool {
 mod tests {
     use memory::Memory;
     use opcode::Opcode::*;
-    use super::{bit_set, bit_get, CPU, CPU_STACK_POINTER_INITIAL_VALUE};
+    use super::{
+        bit_set, bit_get, CPU, CPU_STACK_POINTER_INITIAL_VALUE, IRQ_VECTOR_ADDR
+    };
 
     #[test]
     fn test_status_register() {
@@ -1097,6 +1122,25 @@ mod tests {
         cpu.set_negative(true);
         cpu.step();
         assert_eq!(cpu.pc, 2);
+    }
+
+    #[test]
+    fn test_brk() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, BRK as u8);
+        cpu.write_u16(IRQ_VECTOR_ADDR, 0x0400);
+        cpu.set_break(false);
+
+        let pc = cpu.pc;
+        let status = cpu.p;
+
+        assert_eq!(cpu.break_flag(), false);
+        cpu.step();
+        assert_eq!(cpu.peek(0), status);
+        assert_eq!(cpu.peek(1), pc as u8 + 1); // PC has since been incremented
+        assert_eq!(cpu.peek(2), (pc >> 8) as u8);
+        assert_eq!(cpu.pc, 0x0400);
+        assert_eq!(cpu.break_flag(), true);
     }
 
     #[test]
