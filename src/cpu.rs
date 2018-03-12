@@ -11,7 +11,7 @@ const CPU_STACK_POINTER_INITIAL_VALUE: u8 = 0xFD;
 const FLAG_CARRY: u8 = 0;
 const FLAG_ZERO: u8 = 1;
 const _FLAG_IRQ_DISABLE: u8 = 2;
-const _FLAG_DECIMAL_MODE: u8 = 3;
+const FLAG_DECIMAL_MODE: u8 = 3;
 const FLAG_BREAK: u8 = 5;
 const FLAG_OVERFLOW: u8 = 6;
 const FLAG_NEGATIVE: u8 = 7;
@@ -226,6 +226,7 @@ impl CPU {
                 self.bvs(addr);
             },
             CLC => self.clc(),
+            CLD => self.cld(),
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -238,7 +239,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ CLD |
             ref opcode @ CLI |
             ref opcode @ CLV |
             ref opcode @ CMP_IMM |
@@ -322,6 +322,16 @@ impl CPU {
     /// Sets the value of the "zero" flag.
     fn set_zero(&mut self, zero: bool) {
         self.p = bit_set(self.p, FLAG_ZERO, zero);
+    }
+
+    /// Returns the value of the "decimal mode" flag.
+    fn decimal_mode(&self) -> bool {
+        bit_get(self.p, FLAG_DECIMAL_MODE)
+    }
+
+    /// Sets the value of the "decimal mode" flag.
+    fn set_decimal_mode(&mut self, decimal_mode: bool) {
+        self.p = bit_set(self.p, FLAG_DECIMAL_MODE, decimal_mode);
     }
 
     /// Returns the value of the "break" flag.
@@ -717,6 +727,18 @@ impl CPU {
     /// Sets the carry flag to zero.
     fn clc(&mut self) {
         self.set_carry(false);
+    }
+
+    /// Sets the decimal mode flag to zero.
+    ///
+    /// # Note
+    ///
+    /// The state of the decimal flag is undefined when the CPU is powered up
+    /// and it is not reset when an interrupt is generated.
+    /// In both cases you should include an explicit CLD to ensure that the flag is cleared before
+    /// performing addition or subtraction.
+    fn cld(&mut self) {
+        self.set_decimal_mode(false);
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1221,6 +1243,17 @@ mod tests {
         assert!(cpu.carry());
         cpu.step();
         assert!(!cpu.carry());
+    }
+
+    #[test]
+    fn test_cld() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, CLD as u8);
+        cpu.set_decimal_mode(true);
+
+        assert!(cpu.decimal_mode());
+        cpu.step();
+        assert!(!cpu.decimal_mode());
     }
 
     #[test]
