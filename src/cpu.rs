@@ -276,8 +276,8 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.dec(addr);
             },
-            ref opcode @ DEX |
-            ref opcode @ DEY |
+            DEX => self.dex(),
+            DEY => self.dey(),
             ref opcode @ EOR_IMM |
             ref opcode @ EOR_ZPAGE |
             ref opcode @ EOR_ZPAGEX |
@@ -838,6 +838,30 @@ impl CPU {
         self.set_negative(is_negative(value));
 
         self.write_u8(addr, value);
+    }
+
+    /// Subtracts one from the X register, setting the zero and negative flags
+    /// appropriate.
+    fn dex(&mut self) {
+        let mut value = self.x;
+        value = value.wrapping_sub(1);
+
+        self.set_zero(value == 0);
+        self.set_negative(is_negative(value));
+
+        self.x = value;
+    }
+
+    /// Subtracts one from the Y register, setting the zero and negative flags
+    /// appropriate.
+    fn dey(&mut self) {
+        let mut value = self.y;
+        value = value.wrapping_sub(1);
+
+        self.set_zero(value == 0);
+        self.set_negative(is_negative(value));
+
+        self.y = value;
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1517,6 +1541,48 @@ mod tests {
         cpu.set_negative(true);
         cpu.dec(0x0000);
         assert_eq!(cpu.memory.fetch(0x0000), 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_dex() {
+        let mut cpu = CPU::new();
+
+        cpu.x = 0xFF;
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.dex();
+        assert_eq!(cpu.x, 0xFE);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.x = 0x01;
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.dex();
+        assert_eq!(cpu.x, 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_dey() {
+        let mut cpu = CPU::new();
+
+        cpu.y = 0xFF;
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.dey();
+        assert_eq!(cpu.y, 0xFE);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.y = 0x01;
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.dey();
+        assert_eq!(cpu.y, 0x00);
         assert!(cpu.zero());
         assert!(!cpu.negative());
     }
