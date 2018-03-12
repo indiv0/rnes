@@ -1,6 +1,7 @@
 use memory::{Address, Memory, NESMemory};
 use opcode::Opcode;
 use opcode::Opcode::*;
+use std::cmp::Ordering::{Equal, Greater, Less};
 
 // Initialization values for the CPU registers.
 const CPU_STATUS_REGISTER_INITIAL_VALUE: u8 = 0x34; // 0x00111000 (IRQ disabled)
@@ -241,6 +242,13 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.cmp(addr);
             },
+            CPX_IMM |
+            CPX_ZPAGE |
+            CPX_ABS => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.cpx(addr);
+            }
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -253,9 +261,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ CPX_IMM |
-            ref opcode @ CPX_ZPAGE |
-            ref opcode @ CPX_ABS |
             ref opcode @ CPY_IMM |
             ref opcode @ CPY_ZPAGE |
             ref opcode @ CPY_ABS |
@@ -333,6 +338,31 @@ impl CPU {
         self.pc -= 2;
         // Add the signed relative value to the program counter.
         self.pc += (relative_addr ^ 0x80) - 0x80;
+    }
+
+    /// Compares the specified value to another value in memory, and sets the zaro and carry flags
+    /// as appropriate.
+    fn compare(&mut self, value: u8, other_addr: Address) {
+        // Retrieve the value to be compared.
+        let other = self.read_u8(other_addr);
+
+        match value.cmp(&other) {
+            Less => {
+                self.set_carry(false);
+                self.set_zero(false);
+                self.set_negative(true);
+            },
+            Equal => {
+                self.set_carry(true);
+                self.set_zero(true);
+                self.set_negative(false);
+            },
+            Greater => {
+                self.set_carry(true);
+                self.set_zero(false);
+                self.set_negative(false);
+            }
+        }
     }
 
     // Processor status
@@ -772,30 +802,15 @@ impl CPU {
     /// Compares the contents of the accumulator with another value and sets the
     /// zero and carry flags as appropriate.
     fn cmp(&mut self, addr: Address) {
-        use std::cmp::Ordering::*;
+        let a = self.a;
+        self.compare(a, addr);
+    }
 
-        // Retrieve the value to be compared.
-        let value = self.read_u8(addr);
-
-        // Compare the value against the accumulator and set the flags as
-        // necessary.
-        match self.a.cmp(&value) {
-            Less => {
-                self.set_carry(false);
-                self.set_zero(false);
-                self.set_negative(true);
-            },
-            Equal => {
-                self.set_carry(true);
-                self.set_zero(true);
-                self.set_negative(false);
-            },
-            Greater => {
-                self.set_carry(true);
-                self.set_zero(false);
-                self.set_negative(false);
-            }
-        }
+    /// Compares the contents of the X register with another value and sets the zero and carry
+    /// flags as appropriate.
+    fn cpx(&mut self, addr: Address) {
+        let x = self.x;
+        self.compare(x, addr);
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1371,6 +1386,47 @@ mod tests {
         cpu.set_zero(true);
         cpu.set_negative(true);
         cpu.cmp(0x0000);
+        assert!(cpu.carry());
+        assert!(!cpu.zero());
+        assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_cpx() {
+        let mut cpu = CPU::new();
+        cpu.x = 0x05;
+
+        // Test that the carry, zero, and negative flags get set correctly when
+        // A < M.
+        cpu.memory.store(0x0000, 0x06);
+        cpu.set_carry(true);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.cpx(0x0000);
+        assert!(!cpu.carry());
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        // Test that the carry, zero, and negative flags get set correctly when
+        // A = M.
+        cpu.memory.store(0x0000, 0x05);
+        cpu.pc = 0x0000;
+        cpu.set_carry(false);
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.cpx(0x0000);
+        assert!(cpu.carry());
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+
+        // Test that the carry, zero, and negative flags get set correctly when
+        // A > M.
+        cpu.memory.store(0x0000, 0x04);
+        cpu.pc = 0x0000;
+        cpu.set_carry(false);
+        cpu.set_zero(true);
+        cpu.set_negative(true);
+        cpu.cpx(0x0000);
         assert!(cpu.carry());
         assert!(!cpu.zero());
         assert!(!cpu.negative());
