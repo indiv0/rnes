@@ -311,16 +311,24 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.jsr(addr);
             },
-            ref opcode @ LDX_IMM |
-            ref opcode @ LDX_ZPAGE |
-            ref opcode @ LDX_ZPAGEY |
-            ref opcode @ LDX_ABS |
-            ref opcode @ LDX_ABSY |
-            ref opcode @ LDY_IMM |
-            ref opcode @ LDY_ZPAGE |
-            ref opcode @ LDY_ZPAGEX |
-            ref opcode @ LDY_ABS |
-            ref opcode @ LDY_ABSX |
+            LDX_IMM |
+            LDX_ZPAGE |
+            LDX_ZPAGEY |
+            LDX_ABS |
+            LDX_ABSY => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.ldx(addr);
+            },
+            LDY_IMM |
+            LDY_ZPAGE |
+            LDY_ZPAGEX |
+            LDY_ABS |
+            LDY_ABSX => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.ldy(addr);
+            },
             ref opcode @ LSR_ACC |
             ref opcode @ LSR_ZPAGE |
             ref opcode @ LSR_ZPAGEX |
@@ -1015,6 +1023,24 @@ impl CPU {
         // Negative gets set if bit 7 of A is set.
         let negative = is_negative(self.a);
         self.set_negative(negative);
+    }
+
+    /// Loads a byte of memory into the X register.
+    fn ldx(&mut self, addr: Address) {
+        let value = self.read_u8(addr);
+        self.x = value;
+
+        self.set_zero(value == 0);
+        self.set_negative(is_negative(value));
+    }
+
+    /// Loads a byte of memory into the Y register.
+    fn ldy(&mut self, addr: Address) {
+        let value = self.read_u8(addr);
+        self.y = value;
+
+        self.set_zero(value == 0);
+        self.set_negative(is_negative(value));
     }
 }
 
@@ -1967,6 +1993,54 @@ mod tests {
 
         cpu.step();
         assert_eq!(cpu.a, 0x0B);
+    }
+
+    #[test]
+    fn test_ldx() {
+        let mut cpu = CPU::new();
+
+        cpu.memory.store(0x0200, 0xFF);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        assert_eq!(cpu.x, 0x00);
+        cpu.ldx(0x0200);
+        assert_eq!(cpu.x, 0xFF);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.x = 0xFF;
+        cpu.memory.store(0x0200, 0x00);
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        assert_eq!(cpu.x, 0xFF);
+        cpu.ldx(0x0200);
+        assert_eq!(cpu.x, 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_ldy() {
+        let mut cpu = CPU::new();
+
+        cpu.memory.store(0x0200, 0xFF);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        assert_eq!(cpu.y, 0x00);
+        cpu.ldy(0x0200);
+        assert_eq!(cpu.y, 0xFF);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.y = 0xFF;
+        cpu.memory.store(0x0200, 0x00);
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        assert_eq!(cpu.y, 0xFF);
+        cpu.ldy(0x0200);
+        assert_eq!(cpu.y, 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
     }
 
     #[test]
