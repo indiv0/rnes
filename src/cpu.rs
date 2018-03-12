@@ -814,22 +814,22 @@ impl CPU {
         self.compare(a, addr);
     }
 
-    /// Compares the contents of the X register with another value and sets the zero and carry
-    /// flags as appropriate.
+    /// Compares the contents of the X register with another value and sets the
+    /// zero and carry flags as appropriate.
     fn cpx(&mut self, addr: Address) {
         let x = self.x;
         self.compare(x, addr);
     }
 
-    /// Compares the contents of the Y register with another value and sets the zero and carry
-    /// flags as appropriate.
+    /// Compares the contents of the Y register with another value and sets the
+    /// zero and carry flags as appropriate.
     fn cpy(&mut self, addr: Address) {
         let y = self.y;
         self.compare(y, addr);
     }
 
-    /// Subtracts one from the specified value in memory, setting the zero and negative flags as
-    /// appropriate.
+    /// Subtracts one from the specified value in memory, setting the zero and
+    /// negative flags as appropriate.
     fn dec(&mut self, addr: Address) {
         let mut value = self.read_u8(addr);
         value = value.wrapping_sub(1);
