@@ -1,3 +1,6 @@
+// The size of the NES memory (64 KB).
+const MEM_SIZE: usize = 0x10000;
+
 /// A memory address.
 pub type Address = u16;
 
@@ -80,21 +83,21 @@ pub trait Memory {
 /// * `$FFFE-FFFF` - IRQ/BRK vector
 pub struct NESMemory {
     /// Stores the 64 KB of NES memory.
-    address_space: [u8; 0xFFFF],
+    address_space: [u8; MEM_SIZE],
 }
 
 impl NESMemory {
     /// Constructs a new `NESMemory`.
     pub fn new() -> Self {
         Self {
-            address_space: [0; 0xFFFF],
+            address_space: [0; MEM_SIZE],
         }
     }
 }
 
 impl Memory for NESMemory {
     fn reset(&mut self) {
-        self.address_space = [0; 0xFFFF];
+        self.address_space = [0; MEM_SIZE];
     }
 
     fn fetch(&self, address: Address) -> u8 {
