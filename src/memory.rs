@@ -1,5 +1,5 @@
 // The size of the NES memory (64 KB).
-const MEM_SIZE: usize = 0x10000;
+const MEM_SIZE: usize = 0x1_0000;
 
 /// A memory address.
 pub type Address = u16;
@@ -92,6 +92,12 @@ impl NESMemory {
         Self {
             address_space: [0; MEM_SIZE],
         }
+    }
+}
+
+impl Default for NESMemory {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

@@ -350,7 +350,7 @@ impl CPU {
     fn sp(&self) -> u16 {
         // Compute the address of the stack pointer;
         // the top 8 bits are hard-coded to be equal to 0b0000_0001.
-        0x0100 | self.sp as u16
+        0x0100 | u16::from(self.sp)
     }
 
     /// Pushes a value to the stack.
@@ -378,7 +378,9 @@ impl CPU {
     /// Retrieves a value "index" positions from the top without removing it.
     fn peek(&self, index: u8) -> u8 {
         // Calculate the address we wish to peek at.
-        let addr = 0x0100 | self.sp.wrapping_add(1).wrapping_add(index) as u16;
+        let addr = 0x0100 | u16::from(self.sp
+            .wrapping_add(1)
+            .wrapping_add(index));
         self.read_u8(addr)
     }
 
@@ -418,8 +420,8 @@ impl CPU {
 
     /// Reads and returns a little endian u16 at the specified memory address.
     fn read_u16(&self, addr: u16) -> u16 {
-        let low = self.read_u8(addr) as u16;
-        let high = self.read_u8(addr + 1) as u16;
+        let low = u16::from(self.read_u8(addr));
+        let high = u16::from(self.read_u8(addr + 1));
         high << 8 | low
     }
 
@@ -455,7 +457,7 @@ impl CPU {
     ///
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_zero_page(&mut self) -> Address {
-        let addr = self.read_u8(self.pc) as Address;
+        let addr = Address::from(self.read_u8(self.pc));
         self.pc += 1;
         addr
     }
@@ -467,15 +469,15 @@ impl CPU {
     ///
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_zero_page_x(&mut self) -> Address {
-        let addr = self.read_u8(self.pc) as Address;
+        let addr = Address::from(self.read_u8(self.pc));
         self.pc += 1;
-        addr + self.x as u16
+        addr + u16::from(self.x)
     }
 
     /// Returns a memory address by taking the value at the program counter
     /// location and adding it to the current value of the program counter.
     fn relative(&mut self) -> Address {
-        let addr = self.read_u8(self.pc) as Address;
+        let addr = Address::from(self.read_u8(self.pc));
         self.pc += 1;
         addr
     }
@@ -501,7 +503,7 @@ impl CPU {
     fn addr_abs_x(&mut self) -> Address {
         let base_addr = self.read_u16(self.pc);
         self.pc += 2;
-        base_addr + self.x as u16
+        base_addr + u16::from(self.x)
     }
 
     /// Returns the address value pointed to by the value located at the program
@@ -513,7 +515,7 @@ impl CPU {
     fn addr_abs_y(&mut self) -> Address {
         let base_addr = self.read_u16(self.pc);
         self.pc += 2;
-        base_addr + self.y as u16
+        base_addr + u16::from(self.y)
     }
 
     /// Adds the value of register `X` to the memory address located at the
@@ -524,9 +526,9 @@ impl CPU {
     ///
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_ind_x(&mut self) -> Address {
-        let base_addr = self.read_u8(self.pc) as Address;
+        let base_addr = Address::from(self.read_u8(self.pc));
         self.pc += 1;
-        self.read_u16(base_addr + self.x as u16)
+        self.read_u16(base_addr + u16::from(self.x))
     }
 
     /// Retrieves the memory address pointed to by the instruction operand, then
@@ -536,9 +538,9 @@ impl CPU {
     ///
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_ind_y(&mut self) -> Address {
-        let base_addr = self.read_u8(self.pc) as Address;
+        let base_addr = Address::from(self.read_u8(self.pc));
         self.pc += 1;
-        self.read_u16(base_addr) + self.y as u16
+        self.read_u16(base_addr) + u16::from(self.y)
     }
 
     // Instructions
@@ -567,7 +569,7 @@ impl CPU {
     fn and(&mut self, addr: Address) {
         let arg = self.read_u8(addr);
 
-        self.a = self.a & arg;
+        self.a &= arg;
 
         // Set if A = 0
         let zero = self.a == 0;
@@ -697,6 +699,12 @@ impl CPU {
         // Negative gets set if bit 7 of A is set.
         let negative = is_negative(self.a);
         self.set_negative(negative);
+    }
+}
+
+impl Default for CPU {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1276,18 +1284,18 @@ mod tests {
     fn test_bit_set() {
         let mut value = 0;
         value = bit_set(value, 0, true);
-        assert_eq!(value, 0b00000001);
+        assert_eq!(value, 0b0000_0001);
         value = bit_set(value, 0, true);
-        assert_eq!(value, 0b00000001);
+        assert_eq!(value, 0b0000_0001);
         value = bit_set(value, 7, true);
-        assert_eq!(value, 0b10000001);
+        assert_eq!(value, 0b1000_0001);
         value = bit_set(value, 7, false);
-        assert_eq!(value, 0b00000001);
+        assert_eq!(value, 0b0000_0001);
     }
 
     #[test]
     fn test_bit_get() {
-        assert_eq!(bit_get(0b10000000, 7), true);
-        assert_eq!(bit_get(0b10000000, 6), false);
+        assert_eq!(bit_get(0b1000_0000, 7), true);
+        assert_eq!(bit_get(0b1000_0000, 6), false);
     }
 }
