@@ -489,7 +489,7 @@ impl CPU {
     }
 
     /// Reads and returns a little endian u16 at the specified memory address.
-    fn read_u16(&self, addr: u16) -> u16 {
+    fn read_u16(&self, addr: Address) -> u16 {
         let low = u16::from(self.read_u8(addr));
         let high = u16::from(self.read_u8(addr + 1));
         high << 8 | low
@@ -503,7 +503,7 @@ impl CPU {
     }
 
     /// Writes a little endian `u16` value to the specified memory address.
-    fn write_u16(&mut self, addr: u16, value: u16) {
+    fn write_u16(&mut self, addr: Address, value: u16) {
         self.write_u8(addr, value as u8);
         self.write_u8(addr + 1, (value >> 8) as u8);
     }
