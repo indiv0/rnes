@@ -268,10 +268,14 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ DEC_ZPAGE |
-            ref opcode @ DEC_ZPAGEX |
-            ref opcode @ DEC_ABS |
-            ref opcode @ DEC_ABSX |
+            DEC_ZPAGE |
+            DEC_ZPAGEX |
+            DEC_ABS |
+            DEC_ABSX => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.dec(addr);
+            },
             ref opcode @ DEX |
             ref opcode @ DEY |
             ref opcode @ EOR_IMM |
@@ -822,6 +826,18 @@ impl CPU {
     fn cpy(&mut self, addr: Address) {
         let y = self.y;
         self.compare(y, addr);
+    }
+
+    /// Subtracts one from the specified value in memory, setting the zero and negative flags as
+    /// appropriate.
+    fn dec(&mut self, addr: Address) {
+        let mut value = self.read_u8(addr);
+        value = value.wrapping_sub(1);
+
+        self.set_zero(value == 0);
+        self.set_negative(is_negative(value));
+
+        self.write_u8(addr, value);
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1481,6 +1497,27 @@ mod tests {
         cpu.cpy(0x0000);
         assert!(cpu.carry());
         assert!(!cpu.zero());
+        assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_dec() {
+        let mut cpu = CPU::new();
+
+        cpu.memory.store(0x0000, 0xFF);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.dec(0x0000);
+        assert_eq!(cpu.memory.fetch(0x0000), 0xFE);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.memory.store(0x0000, 0x01);
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.dec(0x0000);
+        assert_eq!(cpu.memory.fetch(0x0000), 0x00);
+        assert!(cpu.zero());
         assert!(!cpu.negative());
     }
 
