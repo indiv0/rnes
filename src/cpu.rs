@@ -309,8 +309,62 @@ impl CPU {
             ref opcode @ LSR_ZPAGE |
             ref opcode @ LSR_ZPAGEX |
             ref opcode @ LSR_ABS |
-            ref opcode @ LSR_ABSX => panic!("Unimplemented opcode: {:?}", opcode),
-            ref opcode => panic!("Unknown opcode: {:?}", opcode),
+            ref opcode @ LSR_ABSX |
+            ref opcode @ NOP |
+            ref opcode @ ORA_IMM |
+            ref opcode @ ORA_ZPAGE |
+            ref opcode @ ORA_ZPAGEX |
+            ref opcode @ ORA_ABS |
+            ref opcode @ ORA_ABSX |
+            ref opcode @ ORA_ABSY |
+            ref opcode @ ORA_INDX |
+            ref opcode @ ORA_INDY |
+            ref opcode @ PHA |
+            ref opcode @ PHP |
+            ref opcode @ PLA |
+            ref opcode @ PLP |
+            ref opcode @ ROL_ACC |
+            ref opcode @ ROL_ZPAGE |
+            ref opcode @ ROL_ZPAGEX |
+            ref opcode @ ROL_ABS |
+            ref opcode @ ROL_ABSX |
+            ref opcode @ ROR_ACC |
+            ref opcode @ ROR_ZPAGE |
+            ref opcode @ ROR_ZPAGEX |
+            ref opcode @ ROR_ABS |
+            ref opcode @ ROR_ABSX |
+            ref opcode @ RTI |
+            ref opcode @ RTS |
+            ref opcode @ SBC_IMM |
+            ref opcode @ SBC_ZPAGE |
+            ref opcode @ SBC_ZPAGEX |
+            ref opcode @ SBC_ABS |
+            ref opcode @ SBC_ABSX |
+            ref opcode @ SBC_ABSY |
+            ref opcode @ SBC_INDX |
+            ref opcode @ SBC_INDY |
+            ref opcode @ SEC |
+            ref opcode @ SED |
+            ref opcode @ SEI |
+            ref opcode @ STA_ZPAGE |
+            ref opcode @ STA_ZPAGEX |
+            ref opcode @ STA_ABS |
+            ref opcode @ STA_ABSX |
+            ref opcode @ STA_ABSY |
+            ref opcode @ STA_INDX |
+            ref opcode @ STA_INDY |
+            ref opcode @ STX_ZPAGE |
+            ref opcode @ STX_ZPAGEY |
+            ref opcode @ STX_ABS |
+            ref opcode @ STY_ZPAGE |
+            ref opcode @ STY_ZPAGEX |
+            ref opcode @ STY_ABS |
+            ref opcode @ TAX |
+            ref opcode @ TAY |
+            ref opcode @ TSX |
+            ref opcode @ TXA |
+            ref opcode @ TXS |
+            ref opcode @ TYA => panic!("Unimplemented opcode: {:?}", opcode),
         }
     }
 
