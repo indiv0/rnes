@@ -308,6 +308,35 @@ impl CPU {
         }
     }
 
+    fn _reset(&mut self) {
+        // A, X, Y are not affected by reset.
+
+        // Decrement S by 3, but do not write anything to the stack.
+        self.sp.wrapping_sub(3);
+
+        // Set the I (IRQ disable) flag to true).
+        self.p |= 0x04;
+
+        // Internal memory remains unchanged.
+        // APU mode in $4017 remains unchanged.
+
+        // Silence the APU.
+        self.memory.store(0x4015, 0x00);
+    }
+
+    /// Adds the relative displacement to the program counter to branch to a new
+    /// location.
+    fn branch(&mut self, relative_addr: Address) {
+        // Because branch instructions step the program counter by 2, we must
+        // first decrement it back.
+        // TODO: find a way to optimize this?
+        self.pc -= 2;
+        // Add the signed relative value to the program counter.
+        self.pc += (relative_addr ^ 0x80) - 0x80;
+    }
+
+    // Processor status
+
     /// Returns the value of the "carry" flag.
     fn carry(&self) -> bool {
         bit_get(self.p, FLAG_CARRY)
@@ -378,6 +407,8 @@ impl CPU {
         self.p = bit_set(self.p, FLAG_NEGATIVE, negative);
     }
 
+    // Stack operations and variables
+
     /// Returns the value of the stack pointer as an absolute address value.
     fn sp(&self) -> u16 {
         // Compute the address of the stack pointer;
@@ -414,33 +445,6 @@ impl CPU {
             .wrapping_add(1)
             .wrapping_add(index));
         self.read_u8(addr)
-    }
-
-    fn _reset(&mut self) {
-        // A, X, Y are not affected by reset.
-
-        // Decrement S by 3, but do not write anything to the stack.
-        self.sp.wrapping_sub(3);
-
-        // Set the I (IRQ disable) flag to true).
-        self.p |= 0x04;
-
-        // Internal memory remains unchanged.
-        // APU mode in $4017 remains unchanged.
-
-        // Silence the APU.
-        self.memory.store(0x4015, 0x00);
-    }
-
-    /// Adds the relative displacement to the program counter to branch to a new
-    /// location.
-    fn branch(&mut self, relative_addr: Address) {
-        // Because branch instructions step the program counter by 2, we must
-        // first decrement it back.
-        // TODO: find a way to optimize this?
-        self.pc -= 2;
-        // Add the signed relative value to the program counter.
-        self.pc += (relative_addr ^ 0x80) - 0x80;
     }
 
     // Memory read
