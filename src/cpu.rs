@@ -249,6 +249,13 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.cpx(addr);
             }
+            CPY_IMM |
+            CPY_ZPAGE |
+            CPY_ABS => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.cpy(addr);
+            }
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -261,9 +268,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ CPY_IMM |
-            ref opcode @ CPY_ZPAGE |
-            ref opcode @ CPY_ABS |
             ref opcode @ DEC_ZPAGE |
             ref opcode @ DEC_ZPAGEX |
             ref opcode @ DEC_ABS |
@@ -811,6 +815,13 @@ impl CPU {
     fn cpx(&mut self, addr: Address) {
         let x = self.x;
         self.compare(x, addr);
+    }
+
+    /// Compares the contents of the Y register with another value and sets the zero and carry
+    /// flags as appropriate.
+    fn cpy(&mut self, addr: Address) {
+        let y = self.y;
+        self.compare(y, addr);
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1427,6 +1438,47 @@ mod tests {
         cpu.set_zero(true);
         cpu.set_negative(true);
         cpu.cpx(0x0000);
+        assert!(cpu.carry());
+        assert!(!cpu.zero());
+        assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_cpy() {
+        let mut cpu = CPU::new();
+        cpu.y = 0x05;
+
+        // Test that the carry, zero, and negative flags get set correctly when
+        // A < M.
+        cpu.memory.store(0x0000, 0x06);
+        cpu.set_carry(true);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.cpy(0x0000);
+        assert!(!cpu.carry());
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        // Test that the carry, zero, and negative flags get set correctly when
+        // A = M.
+        cpu.memory.store(0x0000, 0x05);
+        cpu.pc = 0x0000;
+        cpu.set_carry(false);
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.cpy(0x0000);
+        assert!(cpu.carry());
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+
+        // Test that the carry, zero, and negative flags get set correctly when
+        // A > M.
+        cpu.memory.store(0x0000, 0x04);
+        cpu.pc = 0x0000;
+        cpu.set_carry(false);
+        cpu.set_zero(true);
+        cpu.set_negative(true);
+        cpu.cpy(0x0000);
         assert!(cpu.carry());
         assert!(!cpu.zero());
         assert!(!cpu.negative());
