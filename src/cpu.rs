@@ -228,6 +228,7 @@ impl CPU {
             CLC => self.clc(),
             CLD => self.cld(),
             CLI => self.cli(),
+            CLV => self.clv(),
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -240,7 +241,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ CLV |
             ref opcode @ CMP_IMM |
             ref opcode @ CMP_ZPAGE |
             ref opcode @ CMP_ZPAGEX |
@@ -754,6 +754,11 @@ impl CPU {
     /// Clears the interrupt disable flag.
     fn cli(&mut self) {
         self.set_irq_disable(false);
+    }
+
+    /// Clears the overflow flag.
+    fn clv(&mut self) {
+        self.set_overflow(false);
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1280,6 +1285,17 @@ mod tests {
         assert!(cpu.irq_disable());
         cpu.step();
         assert!(!cpu.irq_disable());
+    }
+
+    #[test]
+    fn test_clv() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, CLV as u8);
+        cpu.set_overflow(true);
+
+        assert!(cpu.overflow());
+        cpu.step();
+        assert!(!cpu.overflow());
     }
 
     #[test]
