@@ -81,6 +81,7 @@ pub trait Memory {
 /// * `$FFFA-FFFB` - NMI vector
 /// * `$FFFC-FFFD` - Reset vector
 /// * `$FFFE-FFFF` - IRQ/BRK vector
+#[derive(Clone)]
 pub struct NESMemory {
     /// Stores the 64 KB of NES memory.
     address_space: [u8; MEM_SIZE],

@@ -27,6 +27,7 @@ const IRQ_VECTOR_ADDR: Address = 0xFFFE;
 /// The NES CPU is an 8-bit CPU with a small number of internal registers, 64 KB
 /// of memory, and a 16-bit address bus. The processor is little endian and
 /// expects addresses to be stored in memory least significant byte first.
+#[derive(Clone)]
 pub struct CPU {
     // Registers
     /// Accumulator.
@@ -338,7 +339,7 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lsr_mem(addr);
             },
-            ref opcode @ NOP |
+            NOP => self.nop(),
             ref opcode @ ORA_IMM |
             ref opcode @ ORA_ZPAGE |
             ref opcode @ ORA_ZPAGEX |
@@ -462,7 +463,7 @@ impl CPU {
         self.set_carry(bit_get(value, 0));
         let res = value >> 1;
         self.set_zero(res == 0);
-        self.set_negative(is_negative(res));
+        self.set_negative(false);
         res
     }
 
@@ -1073,6 +1074,9 @@ impl CPU {
         let res = self.lsr(value);
         self.write_u8(addr, res);
     }
+
+    /// Causes no changes to the processor (except the normal incrementing of the program counter).
+    fn nop(&self) {}
 }
 
 impl Default for CPU {
@@ -2072,6 +2076,50 @@ mod tests {
         assert_eq!(cpu.y, 0x00);
         assert!(cpu.zero());
         assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_lsr() {
+        let mut cpu = CPU::new();
+
+        cpu.a = 0xFF;
+        cpu.set_carry(false);
+        cpu.set_zero(true);
+        cpu.set_negative(true);
+        assert_eq!(cpu.a, 0xFF);
+        cpu.lsr_acc();
+        assert_eq!(cpu.a, 0x7F);
+        assert!(cpu.carry());
+        assert!(!cpu.zero());
+        assert!(!cpu.negative());
+
+        cpu.a = 0x00;
+        cpu.set_carry(true);
+        cpu.set_zero(false);
+        assert_eq!(cpu.a, 0x00);
+        cpu.lsr_acc();
+        assert_eq!(cpu.a, 0x00);
+        assert!(!cpu.carry());
+        assert!(cpu.zero());
+    }
+
+    #[test]
+    fn test_nop() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0200, NOP as u8);
+        cpu.pc = 0x0200;
+
+        let mut cpu2 = cpu.clone();
+        cpu2.step();
+        assert_eq!(cpu2.pc, 0x0201);
+        cpu2.pc -= 1;
+
+        assert_eq!(cpu.a, cpu2.a);
+        assert_eq!(cpu.x, cpu2.x);
+        assert_eq!(cpu.y, cpu2.y);
+        assert_eq!(cpu.p, cpu2.p);
+        assert_eq!(cpu.pc, cpu2.pc);
+        assert_eq!(cpu.sp, cpu2.sp);
     }
 
     #[test]
