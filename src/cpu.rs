@@ -10,7 +10,7 @@ const CPU_STACK_POINTER_INITIAL_VALUE: u8 = 0xFD;
 // TODO: perhaps replace this with the bitflags crate?
 const FLAG_CARRY: u8 = 0;
 const FLAG_ZERO: u8 = 1;
-const _FLAG_IRQ_DISABLE: u8 = 2;
+const FLAG_IRQ_DISABLE: u8 = 2;
 const FLAG_DECIMAL_MODE: u8 = 3;
 const FLAG_BREAK: u8 = 5;
 const FLAG_OVERFLOW: u8 = 6;
@@ -227,6 +227,7 @@ impl CPU {
             },
             CLC => self.clc(),
             CLD => self.cld(),
+            CLI => self.cli(),
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -239,7 +240,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ CLI |
             ref opcode @ CLV |
             ref opcode @ CMP_IMM |
             ref opcode @ CMP_ZPAGE |
@@ -322,6 +322,16 @@ impl CPU {
     /// Sets the value of the "zero" flag.
     fn set_zero(&mut self, zero: bool) {
         self.p = bit_set(self.p, FLAG_ZERO, zero);
+    }
+
+    /// Returns the value of the "IRQ disable" flag.
+    fn irq_disable(&self) -> bool {
+        bit_get(self.p, FLAG_IRQ_DISABLE)
+    }
+
+    /// Sets the value of the "IRQ disable" flag.
+    fn set_irq_disable(&mut self, irq_disable: bool) {
+        self.p = bit_set(self.p, FLAG_IRQ_DISABLE, irq_disable);
     }
 
     /// Returns the value of the "decimal mode" flag.
@@ -739,6 +749,11 @@ impl CPU {
     /// performing addition or subtraction.
     fn cld(&mut self) {
         self.set_decimal_mode(false);
+    }
+
+    /// Clears the interrupt disable flag.
+    fn cli(&mut self) {
+        self.set_irq_disable(false);
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1254,6 +1269,17 @@ mod tests {
         assert!(cpu.decimal_mode());
         cpu.step();
         assert!(!cpu.decimal_mode());
+    }
+
+    #[test]
+    fn test_cli() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, CLI as u8);
+        cpu.set_irq_disable(true);
+
+        assert!(cpu.irq_disable());
+        cpu.step();
+        assert!(!cpu.irq_disable());
     }
 
     #[test]
