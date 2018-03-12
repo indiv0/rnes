@@ -215,6 +215,11 @@ impl CPU {
                 self.bpl(addr);
             },
             BRK => self.brk(),
+            BVC => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.bvc(addr);
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -227,7 +232,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ BVC |
             ref opcode @ BVS |
             ref opcode @ CLC |
             ref opcode @ CLD |
@@ -690,6 +694,14 @@ impl CPU {
         self.set_break(true);
     }
 
+    /// Adds the relative value to the program counter to branch to a new
+    /// location if the overflow flag is clear.
+    fn bvc(&mut self, addr: Address) {
+        if !self.overflow() {
+            self.branch(addr);
+        }
+    }
+
     /// Loads a byte of memory into the accumulator.
     fn lda(&mut self, addr: Address) {
         let value = self.read_u8(addr);
@@ -1149,6 +1161,22 @@ mod tests {
         assert_eq!(cpu.peek(2), (pc >> 8) as u8);
         assert_eq!(cpu.pc, 0x0400);
         assert_eq!(cpu.break_flag(), true);
+    }
+
+    #[test]
+    fn test_bvc() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, BVC as u8);
+        cpu.memory.store(0x0001, 0x04);
+
+        cpu.set_overflow(false);
+        cpu.step();
+        assert_eq!(cpu.pc, 4);
+
+        cpu.pc = 0;
+        cpu.set_overflow(true);
+        cpu.step();
+        assert_eq!(cpu.pc, 2);
     }
 
     #[test]
