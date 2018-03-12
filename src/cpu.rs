@@ -224,7 +224,6 @@ impl CPU {
                 let addr = operand_addr
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
-                return;
             },
             ref opcode @ BRK |
             ref opcode @ BVC |
