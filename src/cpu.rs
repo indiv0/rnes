@@ -278,14 +278,18 @@ impl CPU {
             },
             DEX => self.dex(),
             DEY => self.dey(),
-            ref opcode @ EOR_IMM |
-            ref opcode @ EOR_ZPAGE |
-            ref opcode @ EOR_ZPAGEX |
-            ref opcode @ EOR_ABS |
-            ref opcode @ EOR_ABSX |
-            ref opcode @ EOR_ABSY |
-            ref opcode @ EOR_INDX |
-            ref opcode @ EOR_INDY |
+            EOR_IMM |
+            EOR_ZPAGE |
+            EOR_ZPAGEX |
+            EOR_ABS |
+            EOR_ABSX |
+            EOR_ABSY |
+            EOR_INDX |
+            EOR_INDY => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.eor(addr);
+            },
             ref opcode @ INC_ZPAGE |
             ref opcode @ INC_ZPAGEX |
             ref opcode @ INC_ABS |
@@ -916,6 +920,18 @@ impl CPU {
         self.set_negative(is_negative(value));
 
         self.y = value;
+    }
+
+    /// Performs an exclusive OR on the contents of the accumulator and the byte
+    /// value at the specified memory address.
+    fn eor(&mut self, addr: Address) {
+        let value = self.read_u8(addr);
+
+        self.a ^= value;
+
+        let a = self.a;
+        self.set_zero(a == 0);
+        self.set_negative(is_negative(a));
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1637,6 +1653,29 @@ mod tests {
         cpu.set_negative(true);
         cpu.dey();
         assert_eq!(cpu.y, 0x00);
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+    }
+
+    #[test]
+    fn test_eor() {
+        let mut cpu = CPU::new();
+
+        cpu.a = 0xFF;
+        cpu.memory.store(0x0000, 0x0F);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.eor(0x0000);
+        assert_eq!(cpu.a, 0xF0);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.a = 0xFF;
+        cpu.memory.store(0x0000, 0xFF);
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.eor(0x0000);
+        assert_eq!(cpu.a, 0x00);
         assert!(cpu.zero());
         assert!(!cpu.negative());
     }
