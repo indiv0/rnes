@@ -229,6 +229,18 @@ impl CPU {
             CLD => self.cld(),
             CLI => self.cli(),
             CLV => self.clv(),
+            CMP_IMM |
+            CMP_ZPAGE |
+            CMP_ZPAGEX |
+            CMP_ABS |
+            CMP_ABSX |
+            CMP_ABSY |
+            CMP_INDX |
+            CMP_INDY => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.cmp(addr);
+            },
             LDA_IMM |
             LDA_ZPAGE |
             LDA_ZPAGEX |
@@ -241,14 +253,6 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.lda(addr);
             },
-            ref opcode @ CMP_IMM |
-            ref opcode @ CMP_ZPAGE |
-            ref opcode @ CMP_ZPAGEX |
-            ref opcode @ CMP_ABS |
-            ref opcode @ CMP_ABSX |
-            ref opcode @ CMP_ABSY |
-            ref opcode @ CMP_INDX |
-            ref opcode @ CMP_INDY |
             ref opcode @ CPX_IMM |
             ref opcode @ CPX_ZPAGE |
             ref opcode @ CPX_ABS |
@@ -759,6 +763,35 @@ impl CPU {
     /// Clears the overflow flag.
     fn clv(&mut self) {
         self.set_overflow(false);
+    }
+
+    /// Compares the contents of the accumulator with another value and sets the
+    /// zero and carry flags as appropriate.
+    fn cmp(&mut self, addr: Address) {
+        use std::cmp::Ordering::*;
+
+        // Retrieve the value to be compared.
+        let value = self.read_u8(addr);
+
+        // Compare the value against the accumulator and set the flags as
+        // necessary.
+        match self.a.cmp(&value) {
+            Less => {
+                self.set_carry(false);
+                self.set_zero(false);
+                self.set_negative(true);
+            },
+            Equal => {
+                self.set_carry(true);
+                self.set_zero(true);
+                self.set_negative(false);
+            },
+            Greater => {
+                self.set_carry(true);
+                self.set_zero(false);
+                self.set_negative(false);
+            }
+        }
     }
 
     /// Loads a byte of memory into the accumulator.
@@ -1296,6 +1329,47 @@ mod tests {
         assert!(cpu.overflow());
         cpu.step();
         assert!(!cpu.overflow());
+    }
+
+    #[test]
+    fn test_cmp() {
+        let mut cpu = CPU::new();
+        cpu.a = 0x05;
+
+        // Test that the carry, zero, and negative flags get set correctly when
+        // A < M.
+        cpu.memory.store(0x0000, 0x06);
+        cpu.set_carry(true);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        cpu.cmp(0x0000);
+        assert!(!cpu.carry());
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        // Test that the carry, zero, and negative flags get set correctly when
+        // A = M.
+        cpu.memory.store(0x0000, 0x05);
+        cpu.pc = 0x0000;
+        cpu.set_carry(false);
+        cpu.set_zero(false);
+        cpu.set_negative(true);
+        cpu.cmp(0x0000);
+        assert!(cpu.carry());
+        assert!(cpu.zero());
+        assert!(!cpu.negative());
+
+        // Test that the carry, zero, and negative flags get set correctly when
+        // A > M.
+        cpu.memory.store(0x0000, 0x04);
+        cpu.pc = 0x0000;
+        cpu.set_carry(false);
+        cpu.set_zero(true);
+        cpu.set_negative(true);
+        cpu.cmp(0x0000);
+        assert!(cpu.carry());
+        assert!(!cpu.zero());
+        assert!(!cpu.negative());
     }
 
     #[test]
