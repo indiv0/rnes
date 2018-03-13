@@ -416,8 +416,8 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.sty(addr);
             },
-            ref opcode @ TAX |
-            ref opcode @ TAY |
+            TAX => self.tax(),
+            TAY => self.tay(),
             ref opcode @ TSX |
             ref opcode @ TXA |
             ref opcode @ TXS |
@@ -1283,6 +1283,26 @@ impl CPU {
     fn sty(&mut self, addr: Address) {
         let y = self.y;
         self.write_u8(addr, y);
+    }
+
+    /// Copies the contents of the accumulator into the X register.
+    /// Sets the zero and negative flags as appropriate.
+    fn tax(&mut self) {
+        self.x = self.a;
+
+        let x = self.x;
+        self.set_zero(x == 0);
+        self.set_negative(is_negative(x));
+    }
+
+    /// Copies the contents of the accumulator into the Y register.
+    /// Sets the zero and negative flags as appropriate.
+    fn tay(&mut self) {
+        self.y = self.a;
+
+        let y = self.y;
+        self.set_zero(y == 0);
+        self.set_negative(is_negative(y));
     }
 }
 
@@ -2627,6 +2647,40 @@ mod tests {
         assert_eq!(cpu.memory.fetch(0x0200), 0x00);
         cpu.step();
         assert_eq!(cpu.memory.fetch(0x0200), 0xAB);
+    }
+
+    #[test]
+    fn test_tax() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, TAX as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x02);
+        cpu.a = 0xAB;
+
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        assert_eq!(cpu.x, 0x00);
+        cpu.step();
+        assert_eq!(cpu.x, 0xAB);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+    }
+
+    #[test]
+    fn test_tay() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, TAY as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x02);
+        cpu.a = 0xAB;
+
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        assert_eq!(cpu.y, 0x00);
+        cpu.step();
+        assert_eq!(cpu.y, 0xAB);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
     }
 
     #[test]
