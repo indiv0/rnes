@@ -356,16 +356,24 @@ impl CPU {
             PHP => self.php(),
             PLA => self.pla(),
             PLP => self.plp(),
-            ref opcode @ ROL_ACC |
-            ref opcode @ ROL_ZPAGE |
-            ref opcode @ ROL_ZPAGEX |
-            ref opcode @ ROL_ABS |
-            ref opcode @ ROL_ABSX |
-            ref opcode @ ROR_ACC |
-            ref opcode @ ROR_ZPAGE |
-            ref opcode @ ROR_ZPAGEX |
-            ref opcode @ ROR_ABS |
-            ref opcode @ ROR_ABSX |
+            ROL_ACC => self.rol_acc(),
+            ROL_ZPAGE |
+            ROL_ZPAGEX |
+            ROL_ABS |
+            ROL_ABSX => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.rol_mem(addr);
+            },
+            ROR_ACC => self.ror_acc(),
+            ROR_ZPAGE |
+            ROR_ZPAGEX |
+            ROR_ABS |
+            ROR_ABSX => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.ror_mem(addr);
+            },
             ref opcode @ RTI |
             ref opcode @ RTS |
             ref opcode @ SBC_IMM |
@@ -469,6 +477,36 @@ impl CPU {
         self.set_zero(res == 0);
         self.set_negative(false);
         res
+    }
+
+    /// Rotates the bits of the specified value one place to the left, and
+    /// returns the resulting value.
+    /// Sets the carry, zero, and negative flags as necessary.
+    fn rol(&mut self, value: u8) -> u8 {
+        let new_carry = bit_get(value, 7);
+        let mut result = value << 1;
+        result = bit_set(result, 0, self.carry());
+
+        self.set_carry(new_carry);
+        self.set_zero(result == 0);
+        self.set_negative(is_negative(result));
+
+        result
+    }
+
+    /// Rotates the bits of the specified value one place to the right, and
+    /// returns the resulting value.
+    /// Sets the carry, zero, and negative flags as necessary.
+        fn ror(&mut self, value: u8) -> u8 {
+        let new_carry = bit_get(value, 0);
+        let mut result = value >> 1;
+        result = bit_set(result, 7, self.carry());
+
+        self.set_carry(new_carry);
+        self.set_zero(result == 0);
+        self.set_negative(is_negative(result));
+
+        result
     }
 
     // Processor status
@@ -1120,6 +1158,38 @@ impl CPU {
     /// Pulls an 8-bit value from the stack into the processor flags.
     fn plp(&mut self) {
         self.p = self.pop();
+    }
+
+    /// Shift each of the bits in the accumulator one place to the left.
+    /// Sets the carry, zero, and negative flags as necessary.
+    fn rol_acc(&mut self) {
+        let a = self.a;
+        self.a = self.rol(a);
+    }
+
+    /// Shift each of the bits in the value pointed at by the memory address one
+    /// place to the left.
+    /// Sets the carry, zero, and negative flags as necessary.
+    fn rol_mem(&mut self, addr: Address) {
+        let value = self.read_u8(addr);
+        let res = self.rol(value);
+        self.write_u8(addr, res);
+    }
+
+    /// Shift each of the bits in the accumulator one place to the right.
+    /// Sets the carry, zero, and negative flags as necessary.
+    fn ror_acc(&mut self) {
+        let a = self.a;
+        self.a = self.ror(a);
+    }
+
+    /// Shift each of the bits in the value pointed at by the memory address one
+    /// place to the right.
+    /// Sets the carry, zero, and negative flags as necessary.
+    fn ror_mem(&mut self, addr: Address) {
+        let value = self.read_u8(addr);
+        let res = self.ror(value);
+        self.write_u8(addr, res);
     }
 }
 
@@ -2229,6 +2299,56 @@ mod tests {
         assert_eq!(cpu.p, 0x00);
         cpu.plp();
         assert_eq!(cpu.p, 0xFF);
+    }
+
+    #[test]
+    fn test_rol() {
+        let mut cpu = CPU::new();
+
+        cpu.a = 0xFF;
+        cpu.set_carry(false);
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        assert_eq!(cpu.a, 0xFF);
+        cpu.rol_acc();
+        assert_eq!(cpu.a, 0xFE);
+        assert!(cpu.carry());
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+
+        cpu.a = 0x80;
+        cpu.set_carry(true);
+        cpu.set_zero(true);
+        assert_eq!(cpu.a, 0x80);
+        cpu.rol_acc();
+        assert_eq!(cpu.a, 0x01);
+        assert!(cpu.carry());
+        assert!(!cpu.zero());
+    }
+
+    #[test]
+    fn test_ror() {
+        let mut cpu = CPU::new();
+
+        cpu.a = 0xFF;
+        cpu.set_carry(false);
+        cpu.set_zero(true);
+        cpu.set_negative(true);
+        assert_eq!(cpu.a, 0xFF);
+        cpu.ror_acc();
+        assert_eq!(cpu.a, 0x7F);
+        assert!(cpu.carry());
+        assert!(!cpu.zero());
+        assert!(!cpu.negative());
+
+        cpu.a = 0x00;
+        cpu.set_carry(true);
+        cpu.set_zero(true);
+        assert_eq!(cpu.a, 0x00);
+        cpu.ror_acc();
+        assert_eq!(cpu.a, 0x80);
+        assert!(!cpu.carry());
+        assert!(!cpu.zero());
     }
 
     #[test]
