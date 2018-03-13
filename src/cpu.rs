@@ -375,7 +375,7 @@ impl CPU {
                 self.ror_mem(addr);
             },
             RTI => self.rti(),
-            ref opcode @ RTS |
+            RTS => self.rts(),
             ref opcode @ SBC_IMM |
             ref opcode @ SBC_ZPAGE |
             ref opcode @ SBC_ZPAGEX |
@@ -1210,6 +1210,15 @@ impl CPU {
         let mut pc = u16::from(self.pop());
         pc |= u16::from(self.pop()) << 8;
         self.pc = pc;
+    }
+
+    /// Returns from a subroutine.
+    ///
+    /// Pulls the program counter (minus one) fromt he stack.
+    fn rts(&mut self) {
+        let mut pc = u16::from(self.pop());
+        pc |= u16::from(self.pop()) << 8;
+        self.pc = pc.wrapping_sub(1);
     }
 }
 
@@ -2403,6 +2412,20 @@ mod tests {
         cpu.step();
         assert_eq!(cpu.pc, 0x0001);
         assert!(!cpu.carry());
+    }
+
+    #[test]
+    fn test_rts() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, JMP_ABS as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x01);
+        cpu.memory.store(0x0100, RTS as u8);
+
+        cpu.step();
+        assert_eq!(cpu.pc, 0x0100);
+        cpu.step();
+        assert_eq!(cpu.pc, 0xFFFF);
     }
 
     #[test]
