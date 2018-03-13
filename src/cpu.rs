@@ -374,7 +374,7 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.ror_mem(addr);
             },
-            ref opcode @ RTI |
+            RTI => self.rti(),
             ref opcode @ RTS |
             ref opcode @ SBC_IMM |
             ref opcode @ SBC_ZPAGE |
@@ -1190,6 +1190,15 @@ impl CPU {
         let value = self.read_u8(addr);
         let res = self.ror(value);
         self.write_u8(addr, res);
+    }
+
+    /// Pulls the processor flags and program counter from the stack.
+    fn rti(&mut self) {
+        self.p = self.pop();
+
+        let mut pc = u16::from(self.pop());
+        pc |= u16::from(self.pop()) << 8;
+        self.pc = pc;
     }
 }
 
@@ -2349,6 +2358,27 @@ mod tests {
         assert_eq!(cpu.a, 0x80);
         assert!(!cpu.carry());
         assert!(!cpu.zero());
+    }
+
+    #[test]
+    fn test_rti() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, BRK as u8);
+        cpu.memory.store(0x0100, RTI as u8);
+        cpu.write_u16(IRQ_VECTOR_ADDR, 0x0100);
+
+        cpu.set_break(false);
+        cpu.set_carry(false);
+        assert_eq!(cpu.break_flag(), false);
+        assert!(!cpu.carry());
+        cpu.step();
+        assert_eq!(cpu.pc, 0x0100);
+        assert_eq!(cpu.break_flag(), true);
+        cpu.set_carry(true);
+        assert!(cpu.carry());
+        cpu.step();
+        assert_eq!(cpu.pc, 0x0001);
+        assert!(!cpu.carry());
     }
 
     #[test]
