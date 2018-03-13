@@ -390,7 +390,7 @@ impl CPU {
             },
             SEC => self.sec(),
             SED => self.sed(),
-            ref opcode @ SEI |
+            SEI => self.sei(),
             ref opcode @ STA_ZPAGE |
             ref opcode @ STA_ZPAGEX |
             ref opcode @ STA_ABS |
@@ -1248,6 +1248,11 @@ impl CPU {
     /// Set the decimal mode flag to one.
     fn sed(&mut self) {
         self.set_decimal_mode(true);
+    }
+
+    /// Set the interrupt disable flag to one.
+    fn sei(&mut self) {
+        self.set_irq_disable(true);
     }
 }
 
@@ -2542,6 +2547,17 @@ mod tests {
         assert!(!cpu.decimal_mode());
         cpu.step();
         assert!(cpu.decimal_mode());
+    }
+
+    #[test]
+    fn test_sei() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, SEI as u8);
+        cpu.set_irq_disable(false);
+
+        assert!(!cpu.irq_disable());
+        cpu.step();
+        assert!(cpu.irq_disable());
     }
 
     #[test]
