@@ -391,13 +391,17 @@ impl CPU {
             SEC => self.sec(),
             SED => self.sed(),
             SEI => self.sei(),
-            ref opcode @ STA_ZPAGE |
-            ref opcode @ STA_ZPAGEX |
-            ref opcode @ STA_ABS |
-            ref opcode @ STA_ABSX |
-            ref opcode @ STA_ABSY |
-            ref opcode @ STA_INDX |
-            ref opcode @ STA_INDY |
+            STA_ZPAGE |
+            STA_ZPAGEX |
+            STA_ABS |
+            STA_ABSX |
+            STA_ABSY |
+            STA_INDX |
+            STA_INDY => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.sta(addr);
+            },
             ref opcode @ STX_ZPAGE |
             ref opcode @ STX_ZPAGEY |
             ref opcode @ STX_ABS |
@@ -1253,6 +1257,12 @@ impl CPU {
     /// Set the interrupt disable flag to one.
     fn sei(&mut self) {
         self.set_irq_disable(true);
+    }
+
+    /// Stores the contents of the accumulator into memory.
+    fn sta(&mut self, addr: Address) {
+        let a = self.a;
+        self.write_u8(addr, a);
     }
 }
 
@@ -2558,6 +2568,19 @@ mod tests {
         assert!(!cpu.irq_disable());
         cpu.step();
         assert!(cpu.irq_disable());
+    }
+
+    #[test]
+    fn test_sta() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, STA_ABS as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x02);
+        cpu.a = 0xAB;
+
+        assert_eq!(cpu.memory.fetch(0x0200), 0x00);
+        cpu.step();
+        assert_eq!(cpu.memory.fetch(0x0200), 0xAB);
     }
 
     #[test]
