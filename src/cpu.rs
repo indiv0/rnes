@@ -137,8 +137,8 @@ impl CPU {
             AbsoluteY => Some(self.addr_abs_y()),
             IndirectX => Some(self.addr_ind_x()),
             IndirectY => Some(self.addr_ind_y()),
+            Indirect => Some(self.indirect()),
             Implicit => None,
-            Indirect |
             Accumulator |
             ZeroPageY => panic!("Unimplemented addressing mode"),
         };
@@ -728,6 +728,18 @@ impl CPU {
         base_addr + u16::from(self.y)
     }
 
+    /// Returns the address value pointed to by the value at the program counter location.
+    ///
+    /// # Note
+    ///
+    /// Increments the program counter by 2 to represent the memory read.
+    fn indirect(&mut self) -> Address {
+        let addr_loc = self.read_u16(self.pc);
+        let addr = self.read_u16(addr_loc);
+        self.pc += 2;
+        addr
+    }
+
     /// Adds the value of register `X` to the memory address located at the
     /// program counter location, then returns the memory address value pointed
     /// to by that value.
@@ -1058,8 +1070,7 @@ impl CPU {
     /// This is fixed in some later chips like the 65SC02 so for compatibility
     /// always ensure the indirect vector is not at the end of the page.
     fn jmp(&mut self, addr: Address) {
-        let target_addr = self.read_u16(addr);
-        self.pc = target_addr;
+        self.pc = addr;
     }
 
     /// Pushes the address (minus one) of the return location to the stack and
@@ -2000,14 +2011,27 @@ mod tests {
     }
 
     #[test]
-    fn test_jmp() {
+    fn test_jmp_abs() {
         let mut cpu = CPU::new();
-        cpu.memory.store(0x0000, 0xBB);
-        cpu.memory.store(0x0001, 0xAA);
+        cpu.memory.store(0x0000, JMP_ABS as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x01);
 
-        assert_eq!(cpu.pc, 0x0000);
-        cpu.jmp(0x0000);
-        assert_eq!(cpu.pc, 0xAABB);
+        cpu.step();
+        assert_eq!(cpu.pc, 0x0100);
+    }
+
+    #[test]
+    fn test_jmp_ind() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, JMP_IND as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x01);
+        cpu.memory.store(0x0100, 0x03);
+        cpu.memory.store(0x0101, 0x02);
+
+        cpu.step();
+        assert_eq!(cpu.pc, 0x0203);
     }
 
     #[test]
