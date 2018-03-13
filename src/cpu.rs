@@ -402,12 +402,20 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.sta(addr);
             },
-            ref opcode @ STX_ZPAGE |
-            ref opcode @ STX_ZPAGEY |
-            ref opcode @ STX_ABS |
-            ref opcode @ STY_ZPAGE |
-            ref opcode @ STY_ZPAGEX |
-            ref opcode @ STY_ABS |
+            STX_ZPAGE |
+            STX_ZPAGEY |
+            STX_ABS => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.stx(addr);
+            },
+            STY_ZPAGE |
+            STY_ZPAGEX |
+            STY_ABS => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.sty(addr);
+            },
             ref opcode @ TAX |
             ref opcode @ TAY |
             ref opcode @ TSX |
@@ -1263,6 +1271,18 @@ impl CPU {
     fn sta(&mut self, addr: Address) {
         let a = self.a;
         self.write_u8(addr, a);
+    }
+
+    /// Stores the contents of the X register into memory.
+    fn stx(&mut self, addr: Address) {
+        let x = self.x;
+        self.write_u8(addr, x);
+    }
+
+    /// Stores the contents of the Y register into memory.
+    fn sty(&mut self, addr: Address) {
+        let y = self.y;
+        self.write_u8(addr, y);
     }
 }
 
@@ -2577,6 +2597,32 @@ mod tests {
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);
         cpu.a = 0xAB;
+
+        assert_eq!(cpu.memory.fetch(0x0200), 0x00);
+        cpu.step();
+        assert_eq!(cpu.memory.fetch(0x0200), 0xAB);
+    }
+
+    #[test]
+    fn test_stx() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, STX_ABS as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x02);
+        cpu.x = 0xAB;
+
+        assert_eq!(cpu.memory.fetch(0x0200), 0x00);
+        cpu.step();
+        assert_eq!(cpu.memory.fetch(0x0200), 0xAB);
+    }
+
+    #[test]
+    fn test_sty() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, STY_ABS as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x02);
+        cpu.y = 0xAB;
 
         assert_eq!(cpu.memory.fetch(0x0200), 0x00);
         cpu.step();
