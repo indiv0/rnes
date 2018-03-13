@@ -388,7 +388,7 @@ impl CPU {
                     .expect("Operand address was unexpectedly missing");
                 self.sbc(addr);
             },
-            ref opcode @ SEC |
+            SEC => self.sec(),
             ref opcode @ SED |
             ref opcode @ SEI |
             ref opcode @ STA_ZPAGE |
@@ -1238,6 +1238,11 @@ impl CPU {
         let arg = self.read_u8(addr);
         // SBC(arg) is equivalent to ADC(!arg)
         self.adc_inner(!arg);
+    }
+
+    /// Set the carry flag to one.
+    fn sec(&mut self) {
+        self.set_carry(true);
     }
 }
 
@@ -2510,6 +2515,17 @@ mod tests {
         assert!(!cpu.zero());
         assert!(!cpu.carry());
         assert!(cpu.overflow());
+    }
+
+    #[test]
+    fn test_sec() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, SEC as u8);
+        cpu.set_carry(false);
+
+        assert!(!cpu.carry());
+        cpu.step();
+        assert!(cpu.carry());
     }
 
     #[test]
