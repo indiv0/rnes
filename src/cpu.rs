@@ -419,9 +419,9 @@ impl CPU {
             TAX => self.tax(),
             TAY => self.tay(),
             TSX => self.tsx(),
-            ref opcode @ TXA |
-            ref opcode @ TXS |
-            ref opcode @ TYA => panic!("Unimplemented opcode: {:?}", opcode),
+            TXA => self.txa(),
+            TXS => self.txs(),
+            TYA => self.tya(),
         }
     }
 
@@ -1313,6 +1313,36 @@ impl CPU {
         let x = self.x;
         self.set_zero(x == 0);
         self.set_negative(is_negative(x));
+    }
+
+    /// Copies the contents of the X register into the accumulator.
+    /// Sets the zero and negative flags as appropriate.
+    fn txa(&mut self) {
+        self.a = self.x;
+
+        let a = self.a;
+        self.set_zero(a == 0);
+        self.set_negative(is_negative(a));
+    }
+
+    /// Copies the contents of the X register into the stack register.
+    /// Sets the zero and negative flags as appropriate.
+    fn txs(&mut self) {
+        self.sp = self.x;
+
+        let sp = self.sp;
+        self.set_zero(sp == 0);
+        self.set_negative(is_negative(sp));
+    }
+
+    /// Copies the contents of the Y register into the accumulator.
+    /// Sets the zero and negative flags as appropriate.
+    fn tya(&mut self) {
+        self.a = self.y;
+
+        let a = self.a;
+        self.set_zero(a == 0);
+        self.set_negative(is_negative(a));
     }
 }
 
@@ -2706,6 +2736,57 @@ mod tests {
         assert_eq!(cpu.x, 0x00);
         cpu.step();
         assert_eq!(cpu.x, 0xAB);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+    }
+
+    #[test]
+    fn test_txa() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, TXA as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x02);
+        cpu.x = 0xAB;
+
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        assert_eq!(cpu.a, 0x00);
+        cpu.step();
+        assert_eq!(cpu.a, 0xAB);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+    }
+
+    #[test]
+    fn test_txs() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, TXS as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x02);
+        cpu.x = 0xAB;
+
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        assert_eq!(cpu.sp, CPU_STACK_POINTER_INITIAL_VALUE);
+        cpu.step();
+        assert_eq!(cpu.sp, 0xAB);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+    }
+
+    #[test]
+    fn test_tya() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, TYA as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x02);
+        cpu.y = 0xAB;
+
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        assert_eq!(cpu.a, 0x00);
+        cpu.step();
+        assert_eq!(cpu.a, 0xAB);
         assert!(!cpu.zero());
         assert!(cpu.negative());
     }
