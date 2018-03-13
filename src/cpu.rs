@@ -376,14 +376,18 @@ impl CPU {
             },
             RTI => self.rti(),
             RTS => self.rts(),
-            ref opcode @ SBC_IMM |
-            ref opcode @ SBC_ZPAGE |
-            ref opcode @ SBC_ZPAGEX |
-            ref opcode @ SBC_ABS |
-            ref opcode @ SBC_ABSX |
-            ref opcode @ SBC_ABSY |
-            ref opcode @ SBC_INDX |
-            ref opcode @ SBC_INDY |
+            SBC_IMM |
+            SBC_ZPAGE |
+            SBC_ZPAGEX |
+            SBC_ABS |
+            SBC_ABSX |
+            SBC_ABSY |
+            SBC_INDX |
+            SBC_INDY => {
+                let addr = operand_addr
+                    .expect("Operand address was unexpectedly missing");
+                self.sbc(addr);
+            },
             ref opcode @ SEC |
             ref opcode @ SED |
             ref opcode @ SEI |
@@ -507,6 +511,25 @@ impl CPU {
         self.set_negative(is_negative(result));
 
         result
+    }
+
+    /// Performs an add with carry.
+    fn adc_inner(&mut self, arg: u8) {
+        let (sum, overflow1) = self.a.overflowing_add(arg);
+        let (sum, overflow2) = sum.overflowing_add(self.carry() as u8);
+        let carry = overflow1 || overflow2;
+
+        // Carry flag gets set if overflow in bit 7.
+        self.set_carry(carry);
+        // Set if sign bit is incorrect.
+        let overflow = !(self.a ^ arg) & (self.a ^ sum) & 0x80;
+        self.set_overflow(overflow != 0);
+
+        self.a = sum;
+
+        // Set if A = 0
+        let zero = self.a == 0;
+        self.set_zero(zero);
     }
 
     // Processor status
@@ -770,21 +793,7 @@ impl CPU {
     /// Performs an add with carry.
     fn adc(&mut self, addr: Address) {
         let arg = self.read_u8(addr);
-        let (sum, overflow1) = self.a.overflowing_add(arg);
-        let (sum, overflow2) = sum.overflowing_add(self.carry() as u8);
-        let carry = overflow1 || overflow2;
-
-        // Carry flag gets set if overflow in bit 7.
-        self.set_carry(carry);
-        // Set if sign bit is incorrect.
-        let overflow = !(self.a ^ arg) & (self.a ^ sum) & 0x80;
-        self.set_overflow(overflow != 0);
-
-        self.a = sum;
-
-        // Set if A = 0
-        let zero = self.a == 0;
-        self.set_zero(zero);
+        self.adc_inner(arg);
     }
 
     /// Performs a logical AND.
@@ -1219,6 +1228,16 @@ impl CPU {
         let mut pc = u16::from(self.pop());
         pc |= u16::from(self.pop()) << 8;
         self.pc = pc.wrapping_sub(1);
+    }
+
+    /// Subtracts the contents of a memory location from the accumulator with
+    /// the not of the carry bit.
+    /// If overflow occurs, the carry bit is clear; this enables multiple byte
+    /// subtraction to be performed.
+    fn sbc(&mut self, addr: Address) {
+        let arg = self.read_u8(addr);
+        // SBC(arg) is equivalent to ADC(!arg)
+        self.adc_inner(!arg);
     }
 }
 
@@ -2426,6 +2445,71 @@ mod tests {
         assert_eq!(cpu.pc, 0x0100);
         cpu.step();
         assert_eq!(cpu.pc, 0xFFFF);
+    }
+
+    #[test]
+    fn test_sbc() {
+        let mut cpu = CPU::new();
+
+        // 8 - 4 - !1 = 4, returns C = 1, V = 0
+        cpu.set_zero(true);
+        cpu.set_carry(true);
+        cpu.set_overflow(true);
+        cpu.memory.store(0x0000, 0x04);
+        cpu.a = 0x08;
+        cpu.sbc(0x0000);
+        assert_eq!(cpu.a, 0x04);
+        assert!(!cpu.zero());
+        assert!(cpu.carry());
+        assert!(!cpu.overflow());
+
+        // 8 - 4 - !0 = 3, returns C = 1, V = 0
+        cpu.set_zero(true);
+        cpu.set_carry(false);
+        cpu.set_overflow(true);
+        cpu.memory.store(0x0000, 0x04);
+        cpu.a = 0x08;
+        cpu.sbc(0x0000);
+        assert_eq!(cpu.a, 0x03);
+        assert!(!cpu.zero());
+        assert!(cpu.carry());
+        assert!(!cpu.overflow());
+
+        // 4 - 5 - !1 = 255, returns C = 0, V = 0
+        cpu.set_zero(true);
+        cpu.set_carry(true);
+        cpu.set_overflow(true);
+        cpu.memory.store(0x0000, 0x05);
+        cpu.a = 0x04;
+        cpu.sbc(0x0000);
+        assert_eq!(cpu.a, 0xFF);
+        assert!(!cpu.zero());
+        assert!(!cpu.carry());
+        assert!(!cpu.overflow());
+
+        // 4 - 5 - !0 = 254, returns C = 0, V = 0
+        cpu.set_zero(true);
+        cpu.set_carry(false);
+        cpu.set_overflow(true);
+        cpu.memory.store(0x0000, 0x05);
+        cpu.a = 0x04;
+        cpu.sbc(0x0000);
+        assert_eq!(cpu.a, 0xFE);
+        assert!(!cpu.zero());
+        assert!(!cpu.carry());
+        assert!(!cpu.overflow());
+
+        // 127 - (-1) - !1 = +128, returns C = 0, V = 1
+        cpu.set_zero(true);
+        cpu.set_carry(true);
+        cpu.set_overflow(false);
+        cpu.memory.store(0x0000, 0xFF);
+        cpu.a = 0x7F;
+        cpu.sbc(0x0000);
+        assert_eq!(cpu.a, 0x80);
+        assert!(!cpu.zero());
+        assert!(!cpu.carry());
+        assert!(cpu.overflow());
     }
 
     #[test]
