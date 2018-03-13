@@ -389,7 +389,7 @@ impl CPU {
                 self.sbc(addr);
             },
             SEC => self.sec(),
-            ref opcode @ SED |
+            SED => self.sed(),
             ref opcode @ SEI |
             ref opcode @ STA_ZPAGE |
             ref opcode @ STA_ZPAGEX |
@@ -1243,6 +1243,11 @@ impl CPU {
     /// Set the carry flag to one.
     fn sec(&mut self) {
         self.set_carry(true);
+    }
+
+    /// Set the decimal mode flag to one.
+    fn sed(&mut self) {
+        self.set_decimal_mode(true);
     }
 }
 
@@ -2526,6 +2531,17 @@ mod tests {
         assert!(!cpu.carry());
         cpu.step();
         assert!(cpu.carry());
+    }
+
+    #[test]
+    fn test_sed() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, SED as u8);
+        cpu.set_decimal_mode(false);
+
+        assert!(!cpu.decimal_mode());
+        cpu.step();
+        assert!(cpu.decimal_mode());
     }
 
     #[test]
