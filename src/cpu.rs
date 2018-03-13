@@ -418,7 +418,7 @@ impl CPU {
             },
             TAX => self.tax(),
             TAY => self.tay(),
-            ref opcode @ TSX |
+            TSX => self.tsx(),
             ref opcode @ TXA |
             ref opcode @ TXS |
             ref opcode @ TYA => panic!("Unimplemented opcode: {:?}", opcode),
@@ -1303,6 +1303,16 @@ impl CPU {
         let y = self.y;
         self.set_zero(y == 0);
         self.set_negative(is_negative(y));
+    }
+
+    /// Copies the contents of the stack register into the X register.
+    /// Sets the zero and negative flags as appropriate.
+    fn tsx(&mut self) {
+        self.x = self.sp;
+
+        let x = self.x;
+        self.set_zero(x == 0);
+        self.set_negative(is_negative(x));
     }
 }
 
@@ -2679,6 +2689,23 @@ mod tests {
         assert_eq!(cpu.y, 0x00);
         cpu.step();
         assert_eq!(cpu.y, 0xAB);
+        assert!(!cpu.zero());
+        assert!(cpu.negative());
+    }
+
+    #[test]
+    fn test_tsx() {
+        let mut cpu = CPU::new();
+        cpu.memory.store(0x0000, TSX as u8);
+        cpu.memory.store(0x0001, 0x00);
+        cpu.memory.store(0x0002, 0x02);
+        cpu.sp = 0xAB;
+
+        cpu.set_zero(true);
+        cpu.set_negative(false);
+        assert_eq!(cpu.x, 0x00);
+        cpu.step();
+        assert_eq!(cpu.x, 0xAB);
         assert!(!cpu.zero());
         assert!(cpu.negative());
     }
