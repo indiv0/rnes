@@ -2,6 +2,7 @@ use memory::{Address, Memory, NESMemory};
 use opcode::Opcode;
 use opcode::Opcode::*;
 use std::cmp::Ordering::{Equal, Greater, Less};
+use util::{bit_get, bit_set, is_negative};
 
 // Initialization values for the CPU registers.
 const CPU_STATUS_REGISTER_INITIAL_VALUE: u8 = 0x34; // 0x00111000 (IRQ disabled)
@@ -1350,21 +1351,6 @@ impl Default for CPU {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Sets the bit at position `n` to the specified value.
-fn bit_set(word: u8, n: u8, value: bool) -> u8 {
-    (word & (!(1 << n))) | ((value as u8) << n)
-}
-
-/// Gets the value of the bit at position `n`.
-fn bit_get(word: u8, n: u8) -> bool {
-    word & (1 << n) != 0
-}
-
-/// Returns true if the provided value is negative (i.e., if bit 7 is set).
-fn is_negative(value: u8) -> bool {
-    bit_get(value, 7)
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ mod cpu;
 mod instruction;
 mod memory;
 mod opcode;
+mod util;
 
 pub use cpu::CPU;
 pub use instruction::{AddressingMode, Instruction};
