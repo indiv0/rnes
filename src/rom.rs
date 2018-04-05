@@ -182,23 +182,59 @@ named!(rom<&[u8], ROM>,
 named!(
     header<&[u8], Header>,
     bits!(do_parse!(
-                        bytes!(tag!(HEADER_START)) >>
-        prg_rom_size:   bytes!(le_u8) >>
-        chr_size:       bytes!(le_u8) >>
-        flags_6:        flags_6 >>
-        flags_7:        flags_7 >>
-        prg_ram_size:   bytes!(le_u8) >>
-        flags_9:        flags_9 >>
-        _flags_10:      bytes!(le_u8) >>
-        trailing_bytes: bytes!(take!(5)) >>
-        ({
+        // Bytes 0-3
+                                    bytes!(tag!(HEADER_START)) >>
+        // Bytes 4-5
+        prg_rom_size:               bytes!(le_u8) >>
+        chr_size:                   bytes!(le_u8) >>
+        // Flags 6
+        mapper_nibble_lower:        take_nibble >>
+        ignore_mirroring_control:   take_bool >>
+        trainer:                    take_bool >>
+        persistent_memory:          take_bool >>
+        mirroring:
+            map!(
+                take_bool,
+                |m| if m {
+                    Mirroring::Vertical
+                } else {
+                    Mirroring::Horizontal
+                }
+            ) >>
+        // Flags 7
+        mapper_nibble_upper:        take_nibble >>
+        nes_2_flags:
             // If bits 2-3 of byte 7 are equal to 2, then flags 8-15 are in the
             // NES 2.0 format.
-            let nes_2_flags = flags_7.1;
-
+            alt!(
+                preceded!(tag_bits!(u8, 2, 0b10), value!(true)) |
+                preceded!(take_bits!(u8, 2), value!(false))
+            ) >>
+        playchoice:                 take_bool >>
+        unisystem:                  take_bool >>
+        // Byte 8
+        prg_ram_size:               bytes!(le_u8) >>
+        // Flags 9
+        tv_system:
+            preceded!(
+                take_bits!(u8, 7), // Reserved
+                map!(
+                    take_bool,
+                    |s| if s {
+                        TvSystem::PAL
+                    } else {
+                        TvSystem::NTSC
+                    }
+                )
+            ) >>
+        // Flags 10
+        _flags_10:      bytes!(le_u8) >>
+        // Bytes 11-15
+        trailing_bytes: bytes!(take!(5)) >>
+        ({
             // Calculate the mapper number by merging the lower and upper
             // nibbles.
-            let mut mapper = (flags_7.0 << 4) | flags_6.0;
+            let mut mapper = (mapper_nibble_upper << 4) | mapper_nibble_lower;
 
             // If the trailing 4 bytes are non-zero and the header is not marked
             // as being in the NES 2.0 format, then we want to mask off the
@@ -214,61 +250,18 @@ named!(
             Header {
                 prg_rom_size,
                 chr_size,
-                mirroring: flags_6.4,
-                persistent_memory: flags_6.3,
-                trainer: flags_6.2,
-                ignore_mirroring_control: flags_6.1,
-                unisystem: flags_7.3,
-                playchoice: flags_7.2,
+                mirroring,
+                persistent_memory,
+                trainer,
+                ignore_mirroring_control,
+                unisystem,
+                playchoice,
                 mapper,
                 prg_ram_size,
-                tv_system: flags_9,
+                tv_system,
             }
         })
     ))
-);
-
-named!(flags_6<(&[u8], usize), (u8, bool, bool, bool, Mirroring)>,
-    tuple!(
-        take_nibble,
-        take_bool,
-        take_bool,
-        take_bool,
-        map!(
-            take_bool,
-            |m| if m {
-                Mirroring::Vertical
-            } else {
-                Mirroring::Horizontal
-            }
-        )
-    )
-);
-
-named!(flags_7<(&[u8], usize), (u8, bool, bool, bool)>,
-    tuple!(
-        take_nibble,
-        alt!(
-            preceded!(tag_bits!(u8, 2, 0b10), value!(true)) |
-            preceded!(take_bits!(u8, 2), value!(false))
-        ),
-        take_bool,
-        take_bool
-    )
-);
-
-named!(flags_9<(&[u8], usize), TvSystem>,
-    preceded!(
-        take_bits!(u8, 7), // Reserved
-        map!(
-            take_bool,
-            |s| if s {
-                TvSystem::PAL
-            } else {
-                TvSystem::NTSC
-            }
-        )
-    )
 );
 
 /// Take the next bit as a `bool`.
