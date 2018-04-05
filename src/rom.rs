@@ -172,12 +172,6 @@ pub fn parse_rom(input: &[u8]) -> Result<ROM, Error> {
     }
 }
 
-/// Take the next bit as a `bool`.
-named!(take_bool<(&[u8], usize), bool>, map!(take_bits!(u8, 1), |v| v != 0 ));
-
-/// Take the next 4 bits as a nibble (`u4` represented with a `u8`).
-named!(take_nibble<(&[u8], usize), u8>, take_bits!(u8, 4));
-
 named!(rom<&[u8], ROM>,
     do_parse!(
         header: header >>
@@ -185,74 +179,18 @@ named!(rom<&[u8], ROM>,
     )
 );
 
-named!(flags_6<(&[u8], usize), (u8, bool, bool, bool, Mirroring)>,
-    do_parse!(
-        mapper_lower_nibble:        take_nibble >>
-        ignore_mirroring_control:   take_bool >>
-        trainer:                    take_bool >>
-        persistent_memory:          take_bool >>
-        mirroring:                  map!(
-            take_bool,
-            |m| if m {
-                Mirroring::Vertical
-            } else {
-                Mirroring::Horizontal
-            }
-        ) >>
-        ((
-            mapper_lower_nibble,
-            ignore_mirroring_control,
-            trainer,
-            persistent_memory,
-            mirroring,
-        ))
-    )
-);
-
-named!(flags_7<(&[u8], usize), (u8, bool, bool, bool)>,
-    do_parse!(
-        mapper_upper_nibble: take_nibble >>
-        nes_2_flags:         alt!(
-            preceded!(tag_bits!(u8, 2, 0b10), value!(true)) |
-            preceded!(take_bits!(u8, 2), value!(false))
-        ) >>
-        playchoice:         take_bool >>
-        unisystem:          take_bool >>
-        ((
-            mapper_upper_nibble,
-            nes_2_flags,
-            playchoice,
-            unisystem,
-        ))
-    )
-);
-
-named!(flags_9<(&[u8], usize), TvSystem>,
-    do_parse!(
-                    take_bits!(u8, 7) >> // Reserved
-        tv_system:  map!(
-            take_bool,
-            |s| if s {
-                TvSystem::PAL
-            } else {
-                TvSystem::NTSC
-            }
-        ) >>
-        (tv_system)
-    )
-);
-
-named!(header<&[u8], Header>,
-    do_parse!(
-                        tag!(HEADER_START) >>
-        prg_rom_size:   le_u8 >>
-        chr_size:       le_u8 >>
-        flags_6:        bits!(flags_6) >>
-        flags_7:        bits!(flags_7) >>
-        prg_ram_size:   le_u8 >>
-        flags_9:        bits!(flags_9) >>
-        _flags_10:      le_u8 >>
-        trailing_bytes: take!(5) >>
+named!(
+    header<&[u8], Header>,
+    bits!(do_parse!(
+                        bytes!(tag!(HEADER_START)) >>
+        prg_rom_size:   bytes!(le_u8) >>
+        chr_size:       bytes!(le_u8) >>
+        flags_6:        flags_6 >>
+        flags_7:        flags_7 >>
+        prg_ram_size:   bytes!(le_u8) >>
+        flags_9:        flags_9 >>
+        _flags_10:      bytes!(le_u8) >>
+        trailing_bytes: bytes!(take!(5)) >>
         ({
             // If bits 2-3 of byte 7 are equal to 2, then flags 8-15 are in the
             // NES 2.0 format.
@@ -287,8 +225,57 @@ named!(header<&[u8], Header>,
                 tv_system: flags_9,
             }
         })
+    ))
+);
+
+named!(flags_6<(&[u8], usize), (u8, bool, bool, bool, Mirroring)>,
+    tuple!(
+        take_nibble,
+        take_bool,
+        take_bool,
+        take_bool,
+        map!(
+            take_bool,
+            |m| if m {
+                Mirroring::Vertical
+            } else {
+                Mirroring::Horizontal
+            }
+        )
     )
 );
+
+named!(flags_7<(&[u8], usize), (u8, bool, bool, bool)>,
+    tuple!(
+        take_nibble,
+        alt!(
+            preceded!(tag_bits!(u8, 2, 0b10), value!(true)) |
+            preceded!(take_bits!(u8, 2), value!(false))
+        ),
+        take_bool,
+        take_bool
+    )
+);
+
+named!(flags_9<(&[u8], usize), TvSystem>,
+    preceded!(
+        take_bits!(u8, 7), // Reserved
+        map!(
+            take_bool,
+            |s| if s {
+                TvSystem::PAL
+            } else {
+                TvSystem::NTSC
+            }
+        )
+    )
+);
+
+/// Take the next bit as a `bool`.
+named!(take_bool<(&[u8], usize), bool>, map!(take_bits!(u8, 1), |v| v != 0 ));
+
+/// Take the next 4 bits as a nibble (`u4` represented with a `u8`).
+named!(take_nibble<(&[u8], usize), u8>, take_bits!(u8, 4));
 
 #[cfg(test)]
 mod tests {
