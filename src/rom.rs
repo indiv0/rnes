@@ -94,12 +94,12 @@ impl Default for ROM {
 /// | 0-3      |                 | "NES<EOF>" string constant present in all .NES files          |
 /// | 4        |                 | PRG ROM page count (16 KB each)                               |
 /// | 5        |                 | CHR ROM page count (8 KB each)                                |
-/// | 6        | 4-7             | Lower nybble of the ROM mapper number                         |
+/// | 6        | 4-7             | Lower nibble of the ROM mapper number                         |
 /// |          | 3               | Four-screen VRAM layout                                       |
 /// |          | 2               | Trainer (512 B) is present (at `$7000-$71FF`)                 |
 /// |          | 1               | Persistent (battery-backed) RAM is present (at `$6000-$7FFF`) |
 /// |          | 0               | Mirroring (0 = horizontal, 1 = vertical)                      |
-/// | 7        | 4-7             | Upper nybble of the ROM mapper number                         |
+/// | 7        | 4-7             | Upper nibble of the ROM mapper number                         |
 /// |          | 1-3             | Reserved (**must be zeroes**)                                 |
 /// |          | 0               | VS Unisystem (0 = false, 1 = true)                            |
 /// | 8        |                 | PRG RAM page count (8 KB each)                                |
