@@ -293,7 +293,12 @@ mod tests {
     use std::fs::File;
     use std::io::Read;
     use super::{header, rom, Header, ROM};
+    use test::Bencher;
 
+    const HEADER_BYTES: [u8; 16] = [
+        0x4E, 0x45, 0x53, 0x1A, 0x10, 0x00, 0x10, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ];
     const TEST_ROM_PATH: &str = "tests/sample-data/nes-test-roms/blargg_nes_cpu_test5/official.nes";
 
     /// Read the file at the specified file path to a `Vec<u8>`.
@@ -306,13 +311,13 @@ mod tests {
         contents
     }
 
+    #[bench]
+    fn bench_parse_header(b: &mut Bencher) {
+        b.iter(|| header(&HEADER_BYTES));
+    }
+
     #[test]
     fn parse_header() {
-        const HEADER_BYTES: [u8; 16] = [
-            0x4E, 0x45, 0x53, 0x1A, 0x10, 0x00, 0x10, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        ];
-
         let header = header(&HEADER_BYTES).unwrap().1;
 
         assert_eq!(header, Header {

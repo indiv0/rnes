@@ -1,8 +1,11 @@
 #![cfg_attr(feature="clippy", feature(plugin))]
 #![cfg_attr(feature="clippy", plugin(clippy))]
+#![cfg_attr(feature="nightly", feature(test))]
 
 #[macro_use]
 extern crate nom;
+#[cfg(test)]
+extern crate test;
 
 mod cpu;
 mod instruction;
