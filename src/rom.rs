@@ -3,20 +3,35 @@
 #![cfg_attr(feature="clippy", allow(double_parens))]
 
 use nom::{le_u8, Err as NomError, Needed};
+use std::io::{Error as IoError, Read};
 
 /// Constant string located at the beginning of every iNES file.
 const HEADER_START: &str = "NES";
+/// Number of bytes in a kilobyte.
+const BYTES_PER_KB: usize = 1024;
+/// Number of bytes in a PRG ROM page.
+const PRG_ROM_PAGE_SIZE: usize = 16 * BYTES_PER_KB;
+/// Number of bytes in a CHR ROM page.
+const CHR_ROM_PAGE_SIZE: usize = 8 * BYTES_PER_KB;
 
 /// An error which occurs while parsing a NES ROM.
 // TODO: hide nom errors from the external interface.
 #[derive(Debug)]
 pub enum Error {
+    /// Internal IO error.
+    Io(IoError),
     /// A `nom` error occured while parsing the ROM.
     Nom(NomError),
     /// The input data provided was incomplete.
     ///
     /// May include a `Needed` enum specifying the amount of needed data.
     Incomplete(Needed),
+}
+
+impl From<IoError> for Error {
+    fn from(value: IoError) -> Self {
+        Error::Io(value)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -67,18 +82,40 @@ pub enum TvSystem {
 pub struct ROM {
     /// Header.
     header: Header,
+    /// PRG ROM data.
+    prg_rom: Vec<u8>,
+    /// CHR ROM data.
+    chr_rom: Vec<u8>,
     // TODO:
-    // Trainer, if present (0 or 512 bytes)
-    // PRG ROM data (16384 * x bytes)
-    // CHR ROM data, if present (8192 * y bytes)
+    // PlayChoice INST-ROM
     // PlayChoice PROM, if present (16 bytes Data, 16 bytes CounterOut) (this is
     // often missing, see PC10 ROM-Images for details)
+    // Title
+}
+
+impl ROM {
+    /// Load and parse the provided input into a NES ROM.
+    pub fn load(r: &mut Read) -> Result<ROM, Error> {
+        use nom::IResult::*;
+        use self::Error;
+
+        let mut data = Vec::new();
+        r.read_to_end(&mut data)?;
+
+        match rom(&data) {
+            Done(_rest, output) => Ok(output),
+            Error(err) => Err(Error::Nom(err)),
+            Incomplete(needed) => Err(Error::Incomplete(needed)),
+        }
+    }
 }
 
 impl Default for ROM {
     fn default() -> Self {
         Self {
             header: Header::default(),
+            prg_rom: Vec::new(),
+            chr_rom: Vec::new(),
         }
     }
 }
@@ -160,22 +197,20 @@ impl Default for Header {
     }
 }
 
-/// Parses the provided byte string into a NES ROM.
-pub fn parse_rom(input: &[u8]) -> Result<ROM, Error> {
-    use nom::IResult::*;
-    use self::Error;
-
-    match rom(input) {
-        Done(_rest, output) => Ok(output),
-        Error(err) => Err(Error::Nom(err)),
-        Incomplete(needed) => Err(Error::Incomplete(needed)),
-    }
-}
-
 named!(rom<&[u8], ROM>,
     do_parse!(
         header: header >>
-        (ROM { header })
+        // Load the PRG ROM.
+        prg_rom: take!(header.prg_rom_size as usize * PRG_ROM_PAGE_SIZE) >>
+        // Load the CHR ROM.
+        chr_rom: take!(header.chr_size as usize * CHR_ROM_PAGE_SIZE) >>
+        ({
+            ROM {
+                header,
+                prg_rom: prg_rom.to_vec(),
+                chr_rom: chr_rom.to_vec(),
+            }
+        })
     )
 );
 
@@ -274,7 +309,7 @@ named!(take_nibble<(&[u8], usize), u8>, take_bits!(u8, 4));
 mod tests {
     use std::fs::File;
     use std::io::Read;
-    use super::{header, rom, Header, ROM};
+    use super::{header, rom, Header};
     use test::Bencher;
 
     const HEADER_BYTES: [u8; 16] = [
@@ -327,12 +362,12 @@ mod tests {
 
         let rom = rom(&data).unwrap().1;
 
-        assert_eq!(rom, ROM {
-            header: Header {
-                prg_rom_size: 16,
-                chr_size: 1,
-                ..Default::default()
-            },
+        assert_eq!(rom.header, Header {
+            prg_rom_size: 16,
+            chr_size: 1,
+            ..Default::default()
         });
+        assert_eq!(rom.prg_rom[0], 0x4C);
+        assert_eq!(rom.chr_rom[0], 0x00);
     }
 }

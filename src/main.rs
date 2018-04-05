@@ -5,9 +5,9 @@ extern crate rnes;
 
 use std::env;
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::BufReader;
 use std::path::Path;
-use rnes::parse_rom;
+use rnes::ROM;
 
 // The name of the program being executed.
 const PROGRAM_NAME: &str = "rnes";
@@ -48,13 +48,8 @@ fn main() {
         .expect(&format!("Failed to open file: {:?}", path));
     let mut reader = BufReader::new(file);
 
-    // Read the contents of the file into a byte string.
-    let mut contents = Vec::new();
-    reader.read_to_end(&mut contents)
-        .expect(&format!("Failed to read file: {:?}", path));
-
     // Parse the file contents into a NES `ROM`.
-    let rom = parse_rom(&contents)
+    let rom = ROM::load(&mut reader)
         .expect("Failed to parse ROM");
 
     println!("Parsed ROM cartridge: {:?}", rom);
