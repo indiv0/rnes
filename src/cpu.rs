@@ -568,6 +568,7 @@ impl CPU {
     }
 
     /// Returns the value of the "IRQ disable" flag.
+    #[allow(dead_code)]
     fn irq_disable(&self) -> bool {
         bit_get(self.p, FLAG_IRQ_DISABLE)
     }
@@ -578,6 +579,7 @@ impl CPU {
     }
 
     /// Returns the value of the "decimal mode" flag.
+    #[allow(dead_code)]
     fn decimal_mode(&self) -> bool {
         bit_get(self.p, FLAG_DECIMAL_MODE)
     }
@@ -588,6 +590,7 @@ impl CPU {
     }
 
     /// Returns the value of the "break" flag.
+    #[allow(dead_code)]
     fn break_flag(&self) -> bool {
         bit_get(self.p, FLAG_BREAK)
     }
@@ -649,6 +652,7 @@ impl CPU {
     }
 
     /// Retrieves a value "index" positions from the top without removing it.
+    #[allow(dead_code)]
     fn peek(&self, index: u8) -> u8 {
         // Calculate the address we wish to peek at.
         let addr = 0x0100 | u16::from(self.sp
@@ -679,6 +683,7 @@ impl CPU {
     }
 
     /// Writes a little endian `u16` value to the specified memory address.
+    #[allow(dead_code)]
     fn write_u16(&mut self, addr: Address, value: u16) {
         self.write_u8(addr, value as u8);
         self.write_u8(addr + 1, (value >> 8) as u8);
