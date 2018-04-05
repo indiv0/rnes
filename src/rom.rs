@@ -84,9 +84,11 @@ pub struct ROM {
     /// Header.
     header: Header,
     /// PRG ROM data.
-    prg_rom: Vec<u8>,
+    // TODO: make this private.
+    pub prg_rom: Vec<u8>,
     /// CHR ROM data.
-    chr_rom: Vec<u8>,
+    // TODO: make this private.
+    pub chr_rom: Vec<u8>,
     // TODO:
     // PlayChoice INST-ROM
     // PlayChoice PROM, if present (16 bytes Data, 16 bytes CounterOut) (this is
@@ -229,7 +231,8 @@ impl fmt::Display for Header {
     }
 }
 
-named!(rom<&[u8], ROM>,
+named!(
+    rom<&[u8], ROM>,
     do_parse!(
         header: header >>
         // Load the PRG ROM.
@@ -247,7 +250,7 @@ named!(rom<&[u8], ROM>,
 );
 
 named!(
-    header<&[u8], Header>,
+    pub header<&[u8], Header>,
     bits!(do_parse!(
         // Bytes 0-3
                                     bytes!(tag!(HEADER_START)) >>

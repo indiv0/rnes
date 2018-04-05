@@ -7,7 +7,7 @@ use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use rnes::ROM;
+use rnes::{NROM, ROM};
 
 // The name of the program being executed.
 const PROGRAM_NAME: &str = "rnes";
@@ -52,6 +52,9 @@ fn main() {
     let rom = ROM::load(&mut reader)
         .expect("Failed to parse ROM");
     println!("Parsed ROM. Header: {}", rom.header());
+
+    // Initialize the memory mapper for the ROM.
+    let _mapper = NROM::new(rom);
 }
 
 /// Print out program usage information.
