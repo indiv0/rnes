@@ -3,6 +3,7 @@
 #![cfg_attr(feature="clippy", allow(double_parens))]
 
 use nom::{le_u8, Err as NomError, Needed};
+use std::fmt;
 use std::io::{Error as IoError, Read};
 
 /// Constant string located at the beginning of every iNES file.
@@ -110,6 +111,12 @@ impl ROM {
     }
 }
 
+impl ROM {
+    pub fn header(&self) -> &Header {
+        &self.header
+    }
+}
+
 impl Default for ROM {
     fn default() -> Self {
         Self {
@@ -157,7 +164,7 @@ pub struct Header {
     /// Size of PRG ROM (in 16 KB pages).
     prg_rom_size: u8,
     /// Size of CHR ROM (in 8 KB pages).
-    chr_size: u8,
+    chr_rom_size: u8,
     /// Nametable mirroring (horizontal or vertical).
     mirroring: Mirroring,
     /// Cartridge contains battery-backed PRG RAM (`$6000-$7FFF`) or other
@@ -183,7 +190,7 @@ impl Default for Header {
     fn default() -> Self {
         Self {
             prg_rom_size: 0,
-            chr_size: 0,
+            chr_rom_size: 0,
             mirroring: Mirroring::Horizontal,
             persistent_memory: false,
             trainer: false,
@@ -197,13 +204,26 @@ impl Default for Header {
     }
 }
 
+impl fmt::Display for Header {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "<Header Mapper:{}, PRG ROM:{} KB, CHR ROM:{} KB, PRG RAM:{} KB>",
+            self.mapper,
+            self.prg_rom_size as usize * 16,
+            self.chr_rom_size as usize * 8,
+            self.prg_ram_size as usize * 8,
+        )
+    }
+}
+
 named!(rom<&[u8], ROM>,
     do_parse!(
         header: header >>
         // Load the PRG ROM.
         prg_rom: take!(header.prg_rom_size as usize * PRG_ROM_PAGE_SIZE) >>
         // Load the CHR ROM.
-        chr_rom: take!(header.chr_size as usize * CHR_ROM_PAGE_SIZE) >>
+        chr_rom: take!(header.chr_rom_size as usize * CHR_ROM_PAGE_SIZE) >>
         ({
             ROM {
                 header,
@@ -221,7 +241,7 @@ named!(
                                     bytes!(tag!(HEADER_START)) >>
         // Bytes 4-5
         prg_rom_size:               bytes!(le_u8) >>
-        chr_size:                   bytes!(le_u8) >>
+        chr_rom_size:               bytes!(le_u8) >>
         // Flags 6
         mapper_nibble_lower:        take_nibble >>
         ignore_mirroring_control:   take_bool >>
@@ -284,7 +304,7 @@ named!(
 
             Header {
                 prg_rom_size,
-                chr_size,
+                chr_rom_size,
                 mirroring,
                 persistent_memory,
                 trainer,
@@ -351,7 +371,7 @@ mod tests {
 
         assert_eq!(header, Header {
             prg_rom_size: 16,
-            chr_size: 1,
+            chr_rom_size: 1,
             ..Default::default()
         });
     }
@@ -364,7 +384,7 @@ mod tests {
 
         assert_eq!(rom.header, Header {
             prg_rom_size: 16,
-            chr_size: 1,
+            chr_rom_size: 1,
             ..Default::default()
         });
         assert_eq!(rom.prg_rom[0], 0x4C);

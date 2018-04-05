@@ -51,8 +51,7 @@ fn main() {
     // Parse the file contents into a NES `ROM`.
     let rom = ROM::load(&mut reader)
         .expect("Failed to parse ROM");
-
-    println!("Parsed ROM cartridge: {:?}", rom);
+    println!("Parsed ROM. Header: {}", rom.header());
 }
 
 /// Print out program usage information.
