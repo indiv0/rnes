@@ -1,21 +1,9 @@
+#![cfg_attr(feature="clippy", allow(double_parens))]
+
 use nom::{le_u8, Err as NomError, Needed};
-use util::bit_get;
 
 /// Constant string located at the beginning of every iNES file.
 const HEADER_START: &str = "NES";
-// Indices of the flag bits in the "Flags 6" section of the header.
-// TODO: perhaps replace this with the bitflags crate?
-const FLAG_MIRRORING: u8 = 0;
-const FLAG_PERSISTENT_MEMORY: u8 = 1;
-const FLAG_TRAINER: u8 = 2;
-const FLAG_IGNORE_MIRRORING_CONTROL: u8 = 3;
-// Indices of the flag bits in the "Flags 7" section of the header.
-// TODO: perhaps replace this with the bitflags crate?
-const FLAG_UNISYSTEM: u8 = 0;
-const FLAG_PLAYCHOICE: u8 = 1;
-// Indices of the flag bits in the "Flags 9" section of the header.
-// TODO: perhaps replace this with the bitflags crate?
-const FLAG_TV_SYSTEM: u8 = 0;
 
 /// An error which occurs while parsing a NES ROM.
 // TODO: hide nom errors from the external interface.
@@ -182,10 +170,73 @@ pub fn parse_rom(input: &[u8]) -> Result<ROM, Error> {
     }
 }
 
+/// Take the next bit as a `bool`.
+named!(take_bool<(&[u8], usize), bool>, map!(take_bits!(u8, 1), |v| v != 0 ));
+
+/// Take the next 4 bits as a nibble (`u4` represented with a `u8`).
+named!(take_nibble<(&[u8], usize), u8>, take_bits!(u8, 4));
+
 named!(rom<&[u8], ROM>,
     do_parse!(
         header: header >>
         (ROM { header })
+    )
+);
+
+named!(flags_6<(&[u8], usize), (u8, bool, bool, bool, Mirroring)>,
+    do_parse!(
+        mapper_lower_nibble:        take_nibble >>
+        ignore_mirroring_control:   take_bool >>
+        trainer:                    take_bool >>
+        persistent_memory:          take_bool >>
+        mirroring:                  map!(
+            take_bool,
+            |m| if m {
+                Mirroring::Vertical
+            } else {
+                Mirroring::Horizontal
+            }
+        ) >>
+        ((
+            mapper_lower_nibble,
+            ignore_mirroring_control,
+            trainer,
+            persistent_memory,
+            mirroring,
+        ))
+    )
+);
+
+named!(flags_7<(&[u8], usize), (u8, bool, bool, bool)>,
+    do_parse!(
+        mapper_upper_nibble: take_nibble >>
+        nes_2_flags:         alt!(
+            preceded!(tag_bits!(u8, 2, 0b10), value!(true)) |
+            preceded!(take_bits!(u8, 2), value!(false))
+        ) >>
+        playchoice:         take_bool >>
+        unisystem:          take_bool >>
+        ((
+            mapper_upper_nibble,
+            nes_2_flags,
+            playchoice,
+            unisystem,
+        ))
+    )
+);
+
+named!(flags_9<(&[u8], usize), TvSystem>,
+    do_parse!(
+                    take_bits!(u8, 7) >> // Reserved
+        tv_system:  map!(
+            take_bool,
+            |s| if s {
+                TvSystem::PAL
+            } else {
+                TvSystem::NTSC
+            }
+        ) >>
+        (tv_system)
     )
 );
 
@@ -194,21 +245,20 @@ named!(header<&[u8], Header>,
                         tag!(HEADER_START) >>
         prg_rom_size:   le_u8 >>
         chr_size:       le_u8 >>
-        flags_6:        le_u8 >>
-        flags_7:        le_u8 >>
+        flags_6:        bits!(flags_6) >>
+        flags_7:        bits!(flags_7) >>
         prg_ram_size:   le_u8 >>
-        flags_9:        le_u8 >>
+        flags_9:        bits!(flags_9) >>
         _flags_10:      le_u8 >>
-                        tag!([0x00]) >>
-        trailing_bytes: take!(4) >>
+        trailing_bytes: take!(5) >>
         ({
             // If bits 2-3 of byte 7 are equal to 2, then flags 8-15 are in the
             // NES 2.0 format.
-            let nes_2_flags = ((flags_7 & 0b0000_1100) >> 2) == 0x02;
+            let nes_2_flags = flags_7.1;
 
             // Calculate the mapper number by merging the lower and upper
             // nibbles.
-            let mut mapper = (flags_7 & 0b1111_0000) | (flags_6 >> 4);
+            let mut mapper = (flags_7.0 << 4) | flags_6.0;
 
             // If the trailing 4 bytes are non-zero and the header is not marked
             // as being in the NES 2.0 format, then we want to mask off the
@@ -216,7 +266,7 @@ named!(header<&[u8], Header>,
             // This is done because older versions of the iNES emulator ignored
             // bytes 7-15, and some ROM management tools would write messages in
             // there.
-            let trailing_bytes_are_null = trailing_bytes == [0x00, 0x00, 0x00, 0x00];
+            let trailing_bytes_are_null = trailing_bytes[1..] == [0x00, 0x00, 0x00, 0x00];
             if !trailing_bytes_are_null && !nes_2_flags {
                 mapper &= 0b0000_1111;
             }
@@ -224,27 +274,15 @@ named!(header<&[u8], Header>,
             Header {
                 prg_rom_size,
                 chr_size,
-                mirroring: {
-                    if bit_get(flags_6, FLAG_MIRRORING) {
-                        Mirroring::Vertical
-                    } else {
-                        Mirroring::Horizontal
-                    }
-                },
-                persistent_memory: bit_get(flags_6, FLAG_PERSISTENT_MEMORY),
-                trainer: bit_get(flags_6, FLAG_TRAINER),
-                ignore_mirroring_control: bit_get(flags_6, FLAG_IGNORE_MIRRORING_CONTROL),
-                unisystem: bit_get(flags_7, FLAG_UNISYSTEM),
-                playchoice: bit_get(flags_7, FLAG_PLAYCHOICE),
+                mirroring: flags_6.4,
+                persistent_memory: flags_6.3,
+                trainer: flags_6.2,
+                ignore_mirroring_control: flags_6.1,
+                unisystem: flags_7.3,
+                playchoice: flags_7.2,
                 mapper,
                 prg_ram_size,
-                tv_system: {
-                    if bit_get(flags_9, FLAG_TV_SYSTEM) {
-                        TvSystem::PAL
-                    } else {
-                        TvSystem::NTSC
-                    }
-                },
+                tv_system: flags_9,
             }
         })
     )
