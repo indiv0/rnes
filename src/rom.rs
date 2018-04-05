@@ -5,15 +5,15 @@
 use nom::{le_u8, Err as NomError, Needed};
 use std::fmt;
 use std::io::{Error as IoError, Read};
+use util::{
+    BYTES_PER_KB,
+    CHR_ROM_PAGE_SIZE,
+    PRG_RAM_PAGE_SIZE,
+    PRG_ROM_PAGE_SIZE,
+};
 
 /// Constant string located at the beginning of every iNES file.
 const HEADER_START: &str = "NES";
-/// Number of bytes in a kilobyte.
-const BYTES_PER_KB: usize = 1024;
-/// Number of bytes in a PRG ROM page.
-const PRG_ROM_PAGE_SIZE: usize = 16 * BYTES_PER_KB;
-/// Number of bytes in a CHR ROM page.
-const CHR_ROM_PAGE_SIZE: usize = 8 * BYTES_PER_KB;
 
 /// An error which occurs while parsing a NES ROM.
 // TODO: hide nom errors from the external interface.
@@ -109,9 +109,7 @@ impl ROM {
             Incomplete(needed) => Err(Error::Incomplete(needed)),
         }
     }
-}
 
-impl ROM {
     pub fn header(&self) -> &Header {
         &self.header
     }
@@ -162,9 +160,9 @@ impl Default for ROM {
 #[derive(Debug, PartialEq)]
 pub struct Header {
     /// Size of PRG ROM (in 16 KB pages).
-    prg_rom_size: u8,
+    prg_rom_pages: u8,
     /// Size of CHR ROM (in 8 KB pages).
-    chr_rom_size: u8,
+    chr_rom_pages: u8,
     /// Nametable mirroring (horizontal or vertical).
     mirroring: Mirroring,
     /// Cartridge contains battery-backed PRG RAM (`$6000-$7FFF`) or other
@@ -181,16 +179,30 @@ pub struct Header {
     /// Number of the mapper to use.
     mapper: u8,
     /// Size of PRG RAM (in 8 KB pages).
-    prg_ram_size: u8,
+    prg_ram_pages: u8,
     /// TV system (NTSC or PAL).
     tv_system: TvSystem,
+}
+
+impl Header {
+    pub fn prg_rom_pages(&self) -> u8 {
+        self.prg_rom_pages
+    }
+
+    pub fn chr_rom_pages(&self) -> u8 {
+        self.chr_rom_pages
+    }
+
+    pub fn prg_ram_pages(&self) -> u8 {
+        self.prg_ram_pages
+    }
 }
 
 impl Default for Header {
     fn default() -> Self {
         Self {
-            prg_rom_size: 0,
-            chr_rom_size: 0,
+            prg_rom_pages: 0,
+            chr_rom_pages: 0,
             mirroring: Mirroring::Horizontal,
             persistent_memory: false,
             trainer: false,
@@ -198,7 +210,7 @@ impl Default for Header {
             unisystem: false,
             playchoice: false,
             mapper: 1,
-            prg_ram_size: 0,
+            prg_ram_pages: 0,
             tv_system: TvSystem::NTSC,
         }
     }
@@ -210,9 +222,9 @@ impl fmt::Display for Header {
             f,
             "<Header Mapper:{}, PRG ROM:{} KB, CHR ROM:{} KB, PRG RAM:{} KB>",
             self.mapper,
-            self.prg_rom_size as usize * 16,
-            self.chr_rom_size as usize * 8,
-            self.prg_ram_size as usize * 8,
+            self.prg_rom_pages as usize * PRG_ROM_PAGE_SIZE / BYTES_PER_KB,
+            self.chr_rom_pages as usize * CHR_ROM_PAGE_SIZE / BYTES_PER_KB,
+            self.prg_ram_pages as usize * PRG_RAM_PAGE_SIZE / BYTES_PER_KB,
         )
     }
 }
@@ -221,9 +233,9 @@ named!(rom<&[u8], ROM>,
     do_parse!(
         header: header >>
         // Load the PRG ROM.
-        prg_rom: take!(header.prg_rom_size as usize * PRG_ROM_PAGE_SIZE) >>
+        prg_rom: take!(header.prg_rom_pages as usize * PRG_ROM_PAGE_SIZE) >>
         // Load the CHR ROM.
-        chr_rom: take!(header.chr_rom_size as usize * CHR_ROM_PAGE_SIZE) >>
+        chr_rom: take!(header.chr_rom_pages as usize * CHR_ROM_PAGE_SIZE) >>
         ({
             ROM {
                 header,
@@ -240,8 +252,8 @@ named!(
         // Bytes 0-3
                                     bytes!(tag!(HEADER_START)) >>
         // Bytes 4-5
-        prg_rom_size:               bytes!(le_u8) >>
-        chr_rom_size:               bytes!(le_u8) >>
+        prg_rom_pages:              bytes!(le_u8) >>
+        chr_rom_pages:              bytes!(le_u8) >>
         // Flags 6
         mapper_nibble_lower:        take_nibble >>
         ignore_mirroring_control:   take_bool >>
@@ -268,7 +280,7 @@ named!(
         playchoice:                 take_bool >>
         unisystem:                  take_bool >>
         // Byte 8
-        prg_ram_size:               bytes!(le_u8) >>
+        prg_ram_pages:              bytes!(le_u8) >>
         // Flags 9
         tv_system:
             preceded!(
@@ -303,8 +315,8 @@ named!(
             }
 
             Header {
-                prg_rom_size,
-                chr_rom_size,
+                prg_rom_pages,
+                chr_rom_pages,
                 mirroring,
                 persistent_memory,
                 trainer,
@@ -312,7 +324,7 @@ named!(
                 unisystem,
                 playchoice,
                 mapper,
-                prg_ram_size,
+                prg_ram_pages,
                 tv_system,
             }
         })
@@ -358,7 +370,7 @@ mod tests {
         let header = header(&HEADER_BYTES).unwrap().1;
 
         assert_eq!(header, Header {
-            prg_rom_size: 16,
+            prg_rom_pages: 16,
             ..Default::default()
         });
     }
@@ -370,8 +382,8 @@ mod tests {
         let header = header(&data).unwrap().1;
 
         assert_eq!(header, Header {
-            prg_rom_size: 16,
-            chr_rom_size: 1,
+            prg_rom_pages: 16,
+            chr_rom_pages: 1,
             ..Default::default()
         });
     }
@@ -383,8 +395,8 @@ mod tests {
         let rom = rom(&data).unwrap().1;
 
         assert_eq!(rom.header, Header {
-            prg_rom_size: 16,
-            chr_rom_size: 1,
+            prg_rom_pages: 16,
+            chr_rom_pages: 1,
             ..Default::default()
         });
         assert_eq!(rom.prg_rom[0], 0x4C);
