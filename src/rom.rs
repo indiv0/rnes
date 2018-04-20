@@ -1,6 +1,5 @@
 // These lines are workarounds to issues in nom macros.
-#![allow(useless_let_if_seq)]
-#![cfg_attr(feature="clippy", allow(double_parens))]
+#![cfg_attr(feature="clippy", allow(useless_let_if_seq, double_parens))]
 
 use nom::{le_u8, Err as NomError, Needed};
 use std::fmt;
