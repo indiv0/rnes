@@ -76,10 +76,7 @@ pub struct Instruction {
 
 impl Instruction {
     /// Constructs a new `Instruction`.
-    pub fn new(
-        opcode: Opcode,
-        addressing_mode: AddressingMode,
-    ) -> Self {
+    pub fn new(opcode: Opcode, addressing_mode: AddressingMode) -> Self {
         Self {
             opcode,
             addressing_mode,

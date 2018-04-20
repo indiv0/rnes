@@ -140,283 +140,168 @@ impl CPU {
             IndirectY => Some(self.addr_ind_y()),
             Indirect => Some(self.indirect()),
             Implicit => None,
-            Accumulator |
-            ZeroPageY => panic!("Unimplemented addressing mode"),
+            Accumulator | ZeroPageY => panic!("Unimplemented addressing mode"),
         };
 
         match *instruction.opcode() {
-            ADC_IMM |
-            ADC_ZPAGE |
-            ADC_ZPAGEX |
-            ADC_ABS |
-            ADC_ABSX |
-            ADC_ABSY |
-            ADC_INDX |
-            ADC_INDY => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            ADC_IMM | ADC_ZPAGE | ADC_ZPAGEX | ADC_ABS | ADC_ABSX | ADC_ABSY | ADC_INDX
+            | ADC_INDY => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.adc(addr);
                 return;
-            },
-            AND_IMM |
-            AND_ZPAGE |
-            AND_ZPAGEX |
-            AND_ABS |
-            AND_ABSX |
-            AND_ABSY |
-            AND_INDX |
-            AND_INDY => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            }
+            AND_IMM | AND_ZPAGE | AND_ZPAGEX | AND_ABS | AND_ABSX | AND_ABSY | AND_INDX
+            | AND_INDY => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.and(addr);
                 return;
-            },
+            }
             ASL_ACC => {
                 self.asl(None);
-            },
-            ASL_ZPAGE |
-            ASL_ZPAGEX |
-            ASL_ABS |
-            ASL_ABSX => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            }
+            ASL_ZPAGE | ASL_ZPAGEX | ASL_ABS | ASL_ABSX => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.asl(Some(addr));
-            },
+            }
             BCC => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.bcc(addr);
-            },
+            }
             BCS => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.bcs(addr);
-            },
+            }
             BEQ => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.beq(addr);
-            },
+            }
             BIT_ZPAGE | BIT_ABS => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.bit(addr);
-            },
+            }
             BMI => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.bmi(addr);
-            },
+            }
             BNE => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.bne(addr);
-            },
+            }
             BPL => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.bpl(addr);
-            },
+            }
             BRK => self.brk(),
             BVC => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.bvc(addr);
-            },
+            }
             BVS => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.bvs(addr);
-            },
+            }
             CLC => self.clc(),
             CLD => self.cld(),
             CLI => self.cli(),
             CLV => self.clv(),
-            CMP_IMM |
-            CMP_ZPAGE |
-            CMP_ZPAGEX |
-            CMP_ABS |
-            CMP_ABSX |
-            CMP_ABSY |
-            CMP_INDX |
-            CMP_INDY => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            CMP_IMM | CMP_ZPAGE | CMP_ZPAGEX | CMP_ABS | CMP_ABSX | CMP_ABSY | CMP_INDX
+            | CMP_INDY => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.cmp(addr);
-            },
-            CPX_IMM |
-            CPX_ZPAGE |
-            CPX_ABS => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            }
+            CPX_IMM | CPX_ZPAGE | CPX_ABS => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.cpx(addr);
             }
-            CPY_IMM |
-            CPY_ZPAGE |
-            CPY_ABS => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            CPY_IMM | CPY_ZPAGE | CPY_ABS => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.cpy(addr);
             }
-            LDA_IMM |
-            LDA_ZPAGE |
-            LDA_ZPAGEX |
-            LDA_ABS |
-            LDA_ABSX |
-            LDA_ABSY |
-            LDA_INDX |
-            LDA_INDY => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            LDA_IMM | LDA_ZPAGE | LDA_ZPAGEX | LDA_ABS | LDA_ABSX | LDA_ABSY | LDA_INDX
+            | LDA_INDY => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.lda(addr);
-            },
-            DEC_ZPAGE |
-            DEC_ZPAGEX |
-            DEC_ABS |
-            DEC_ABSX => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            }
+            DEC_ZPAGE | DEC_ZPAGEX | DEC_ABS | DEC_ABSX => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.dec(addr);
-            },
+            }
             DEX => self.dex(),
             DEY => self.dey(),
-            EOR_IMM |
-            EOR_ZPAGE |
-            EOR_ZPAGEX |
-            EOR_ABS |
-            EOR_ABSX |
-            EOR_ABSY |
-            EOR_INDX |
-            EOR_INDY => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            EOR_IMM | EOR_ZPAGE | EOR_ZPAGEX | EOR_ABS | EOR_ABSX | EOR_ABSY | EOR_INDX
+            | EOR_INDY => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.eor(addr);
-            },
-            INC_ZPAGE |
-            INC_ZPAGEX |
-            INC_ABS |
-            INC_ABSX => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            }
+            INC_ZPAGE | INC_ZPAGEX | INC_ABS | INC_ABSX => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.inc(addr);
-            },
+            }
             INX => self.inx(),
             INY => self.iny(),
-            JMP_ABS |
-            JMP_IND => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            JMP_ABS | JMP_IND => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.jmp(addr);
-            },
+            }
             JSR => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.jsr(addr);
-            },
-            LDX_IMM |
-            LDX_ZPAGE |
-            LDX_ZPAGEY |
-            LDX_ABS |
-            LDX_ABSY => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            }
+            LDX_IMM | LDX_ZPAGE | LDX_ZPAGEY | LDX_ABS | LDX_ABSY => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.ldx(addr);
-            },
-            LDY_IMM |
-            LDY_ZPAGE |
-            LDY_ZPAGEX |
-            LDY_ABS |
-            LDY_ABSX => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            }
+            LDY_IMM | LDY_ZPAGE | LDY_ZPAGEX | LDY_ABS | LDY_ABSX => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.ldy(addr);
-            },
+            }
             LSR_ACC => self.lsr_acc(),
-            LSR_ZPAGE |
-            LSR_ZPAGEX |
-            LSR_ABS |
-            LSR_ABSX => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            LSR_ZPAGE | LSR_ZPAGEX | LSR_ABS | LSR_ABSX => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.lsr_mem(addr);
-            },
+            }
             NOP => self.nop(),
-            ORA_IMM |
-            ORA_ZPAGE |
-            ORA_ZPAGEX |
-            ORA_ABS |
-            ORA_ABSX |
-            ORA_ABSY |
-            ORA_INDX |
-            ORA_INDY => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            ORA_IMM | ORA_ZPAGE | ORA_ZPAGEX | ORA_ABS | ORA_ABSX | ORA_ABSY | ORA_INDX
+            | ORA_INDY => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.ora(addr);
-            },
+            }
             PHA => self.pha(),
             PHP => self.php(),
             PLA => self.pla(),
             PLP => self.plp(),
             ROL_ACC => self.rol_acc(),
-            ROL_ZPAGE |
-            ROL_ZPAGEX |
-            ROL_ABS |
-            ROL_ABSX => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            ROL_ZPAGE | ROL_ZPAGEX | ROL_ABS | ROL_ABSX => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.rol_mem(addr);
-            },
+            }
             ROR_ACC => self.ror_acc(),
-            ROR_ZPAGE |
-            ROR_ZPAGEX |
-            ROR_ABS |
-            ROR_ABSX => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            ROR_ZPAGE | ROR_ZPAGEX | ROR_ABS | ROR_ABSX => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.ror_mem(addr);
-            },
+            }
             RTI => self.rti(),
             RTS => self.rts(),
-            SBC_IMM |
-            SBC_ZPAGE |
-            SBC_ZPAGEX |
-            SBC_ABS |
-            SBC_ABSX |
-            SBC_ABSY |
-            SBC_INDX |
-            SBC_INDY => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            SBC_IMM | SBC_ZPAGE | SBC_ZPAGEX | SBC_ABS | SBC_ABSX | SBC_ABSY | SBC_INDX
+            | SBC_INDY => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.sbc(addr);
-            },
+            }
             SEC => self.sec(),
             SED => self.sed(),
             SEI => self.sei(),
-            STA_ZPAGE |
-            STA_ZPAGEX |
-            STA_ABS |
-            STA_ABSX |
-            STA_ABSY |
-            STA_INDX |
-            STA_INDY => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            STA_ZPAGE | STA_ZPAGEX | STA_ABS | STA_ABSX | STA_ABSY | STA_INDX | STA_INDY => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.sta(addr);
-            },
-            STX_ZPAGE |
-            STX_ZPAGEY |
-            STX_ABS => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            }
+            STX_ZPAGE | STX_ZPAGEY | STX_ABS => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.stx(addr);
-            },
-            STY_ZPAGE |
-            STY_ZPAGEX |
-            STY_ABS => {
-                let addr = operand_addr
-                    .expect("Operand address was unexpectedly missing");
+            }
+            STY_ZPAGE | STY_ZPAGEX | STY_ABS => {
+                let addr = operand_addr.expect("Operand address was unexpectedly missing");
                 self.sty(addr);
-            },
+            }
             TAX => self.tax(),
             TAY => self.tay(),
             TSX => self.tsx(),
@@ -471,12 +356,12 @@ impl CPU {
                 self.set_carry(false);
                 self.set_zero(false);
                 self.set_negative(true);
-            },
+            }
             Equal => {
                 self.set_carry(true);
                 self.set_zero(true);
                 self.set_negative(false);
-            },
+            }
             Greater => {
                 self.set_carry(true);
                 self.set_zero(false);
@@ -514,7 +399,7 @@ impl CPU {
     /// Rotates the bits of the specified value one place to the right, and
     /// returns the resulting value.
     /// Sets the carry, zero, and negative flags as necessary.
-        fn ror(&mut self, value: u8) -> u8 {
+    fn ror(&mut self, value: u8) -> u8 {
         let new_carry = bit_get(value, 0);
         let mut result = value >> 1;
         result = bit_set(result, 7, self.carry());
@@ -655,9 +540,7 @@ impl CPU {
     #[allow(dead_code)]
     fn peek(&self, index: u8) -> u8 {
         // Calculate the address we wish to peek at.
-        let addr = 0x0100 | u16::from(self.sp
-            .wrapping_add(1)
-            .wrapping_add(index));
+        let addr = 0x0100 | u16::from(self.sp.wrapping_add(1).wrapping_add(index));
         self.read_u8(addr)
     }
 
@@ -849,7 +732,9 @@ impl CPU {
         self.set_negative(bit_get(res, 7));
 
         match addr {
-            Some(addr) => { self.memory.store(addr, res); },
+            Some(addr) => {
+                self.memory.store(addr, res);
+            }
             None => self.a = res,
         };
     }
@@ -1360,11 +1245,9 @@ impl Default for CPU {
 
 #[cfg(test)]
 mod tests {
+    use super::{bit_get, bit_set, CPU, CPU_STACK_POINTER_INITIAL_VALUE, IRQ_VECTOR_ADDR};
     use memory::Memory;
     use opcode::Opcode::*;
-    use super::{
-        bit_set, bit_get, CPU, CPU_STACK_POINTER_INITIAL_VALUE, IRQ_VECTOR_ADDR
-    };
 
     #[test]
     fn test_status_register() {

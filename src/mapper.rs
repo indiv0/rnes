@@ -1,11 +1,6 @@
 use memory::Address;
 use rom::ROM;
-use util::{
-    CHR_RAM_PAGE_SIZE,
-    CHR_ROM_PAGE_SIZE,
-    PRG_RAM_PAGE_SIZE,
-    PRG_ROM_PAGE_SIZE,
-};
+use util::{CHR_RAM_PAGE_SIZE, CHR_ROM_PAGE_SIZE, PRG_RAM_PAGE_SIZE, PRG_ROM_PAGE_SIZE};
 
 /// Trait for 16-bit addressed memory management operations on a memory mapper.
 ///
@@ -126,16 +121,15 @@ impl Mapper for NROM {
 
 #[cfg(test)]
 mod tests {
+    use super::NROM;
     use rom::ROM;
     use std::fs::File;
-    use super::NROM;
 
     const TEST_ROM_PATH: &str = "tests/sample-data/nes-test-roms/blargg_nes_cpu_test5/official.nes";
 
     /// Load the ROM located at the provided file path.
     fn load_rom_from_path(path: &str) -> ROM {
-        let mut f = File::open(path)
-            .expect(&format!("File not found: {}", path));
+        let mut f = File::open(path).expect(&format!("File not found: {}", path));
         ROM::load(&mut f).expect(&format!("Failed to load ROM: {}", path))
     }
 

@@ -1,13 +1,13 @@
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
+#![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
 
 extern crate rnes;
 
+use rnes::{NROM, ROM};
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use rnes::{NROM, ROM};
 
 // The name of the program being executed.
 const PROGRAM_NAME: &str = "rnes";
@@ -26,12 +26,11 @@ fn main() {
 
     // If a ROM filepath was provided, attempt to parse the ROM cartridge at the
     // specified location.
-    let path = rom_path_str
-        .ok_or_else(|| { usage(program_name); panic!(); });
-    let path = path
-        .as_ref()
-        .map(|s| Path::new(s))
-        .unwrap();
+    let path = rom_path_str.ok_or_else(|| {
+        usage(program_name);
+        panic!();
+    });
+    let path = path.as_ref().map(|s| Path::new(s)).unwrap();
 
     // Ensure that the path exists.
     if !path.exists() {
@@ -44,13 +43,11 @@ fn main() {
     }
 
     // Open the file with a buffered reader.
-    let file = File::open(path)
-        .expect(&format!("Failed to open file: {:?}", path));
+    let file = File::open(path).expect(&format!("Failed to open file: {:?}", path));
     let mut reader = BufReader::new(file);
 
     // Parse the file contents into a NES `ROM`.
-    let rom = ROM::load(&mut reader)
-        .expect("Failed to parse ROM");
+    let rom = ROM::load(&mut reader).expect("Failed to parse ROM");
     println!("Parsed ROM. Header: {}", rom.header());
 
     // Initialize the memory mapper for the ROM.

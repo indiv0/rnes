@@ -4,12 +4,7 @@
 use nom::{le_u8, Err as NomError, Needed};
 use std::fmt;
 use std::io::{Error as IoError, Read};
-use util::{
-    BYTES_PER_KB,
-    CHR_ROM_PAGE_SIZE,
-    PRG_RAM_PAGE_SIZE,
-    PRG_ROM_PAGE_SIZE,
-};
+use util::{BYTES_PER_KB, CHR_ROM_PAGE_SIZE, PRG_RAM_PAGE_SIZE, PRG_ROM_PAGE_SIZE};
 
 /// Constant string located at the beginning of every iNES file.
 const HEADER_START: &str = "NES";
@@ -98,8 +93,8 @@ pub struct ROM {
 impl ROM {
     /// Load and parse the provided input into a NES ROM.
     pub fn load(r: &mut Read) -> Result<ROM, Error> {
-        use nom::IResult::*;
         use self::Error;
+        use nom::IResult::*;
 
         let mut data = Vec::new();
         r.read_to_end(&mut data)?;
@@ -341,20 +336,19 @@ named!(take_nibble<(&[u8], usize), u8>, take_bits!(u8, 4));
 
 #[cfg(test)]
 mod tests {
+    use super::{header, rom, Header};
     use std::fs::File;
     use std::io::Read;
-    use super::{header, rom, Header};
 
     pub const HEADER_BYTES: [u8; 16] = [
-        0x4E, 0x45, 0x53, 0x1A, 0x10, 0x00, 0x10, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x4E, 0x45, 0x53, 0x1A, 0x10, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00,
     ];
     const TEST_ROM_PATH: &str = "tests/sample-data/nes-test-roms/blargg_nes_cpu_test5/official.nes";
 
     /// Read the file at the specified file path to a `Vec<u8>`.
     fn read_file_to_bytes(path: &str) -> Vec<u8> {
-        let mut f = File::open(path)
-            .expect(&format!("File not found: {}", path));
+        let mut f = File::open(path).expect(&format!("File not found: {}", path));
         let mut contents = Vec::new();
         f.read_to_end(&mut contents)
             .expect(&format!("Failed to read the file: {}", path));
@@ -365,10 +359,13 @@ mod tests {
     fn parse_header() {
         let header = header(&HEADER_BYTES).unwrap().1;
 
-        assert_eq!(header, Header {
-            prg_rom_pages: 16,
-            ..Default::default()
-        });
+        assert_eq!(
+            header,
+            Header {
+                prg_rom_pages: 16,
+                ..Default::default()
+            }
+        );
     }
 
     #[test]
@@ -377,11 +374,14 @@ mod tests {
 
         let header = header(&data).unwrap().1;
 
-        assert_eq!(header, Header {
-            prg_rom_pages: 16,
-            chr_rom_pages: 1,
-            ..Default::default()
-        });
+        assert_eq!(
+            header,
+            Header {
+                prg_rom_pages: 16,
+                chr_rom_pages: 1,
+                ..Default::default()
+            }
+        );
     }
 
     #[test]
@@ -390,11 +390,14 @@ mod tests {
 
         let rom = rom(&data).unwrap().1;
 
-        assert_eq!(rom.header, Header {
-            prg_rom_pages: 16,
-            chr_rom_pages: 1,
-            ..Default::default()
-        });
+        assert_eq!(
+            rom.header,
+            Header {
+                prg_rom_pages: 16,
+                chr_rom_pages: 1,
+                ..Default::default()
+            }
+        );
         assert_eq!(rom.prg_rom[0], 0x4C);
         assert_eq!(rom.chr_rom[0], 0x00);
     }
