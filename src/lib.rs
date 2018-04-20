@@ -4,8 +4,6 @@
 
 #[macro_use]
 extern crate nom;
-#[cfg(test)]
-extern crate test;
 
 mod cpu;
 mod instruction;

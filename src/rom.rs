@@ -345,9 +345,8 @@ mod tests {
     use std::fs::File;
     use std::io::Read;
     use super::{header, rom, Header};
-    use test::Bencher;
 
-    const HEADER_BYTES: [u8; 16] = [
+    pub const HEADER_BYTES: [u8; 16] = [
         0x4E, 0x45, 0x53, 0x1A, 0x10, 0x00, 0x10, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     ];
@@ -361,11 +360,6 @@ mod tests {
         f.read_to_end(&mut contents)
             .expect(&format!("Failed to read the file: {}", path));
         contents
-    }
-
-    #[bench]
-    fn bench_parse_header(b: &mut Bencher) {
-        b.iter(|| header(&HEADER_BYTES));
     }
 
     #[test]
@@ -404,5 +398,19 @@ mod tests {
         });
         assert_eq!(rom.prg_rom[0], 0x4C);
         assert_eq!(rom.chr_rom[0], 0x00);
+    }
+}
+
+#[cfg(all(feature = "nightly", test))]
+mod bench {
+    extern crate test;
+
+    use self::test::Bencher;
+    use super::header;
+    use super::tests::HEADER_BYTES;
+
+    #[bench]
+    fn bench_parse_header(b: &mut Bencher) {
+        b.iter(|| header(&HEADER_BYTES));
     }
 }
