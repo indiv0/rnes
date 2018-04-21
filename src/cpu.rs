@@ -116,7 +116,7 @@ impl CPU {
     }
 
     /// Execute a single instruction cycle.
-    fn step(&mut self) {
+    pub fn step(&mut self) {
         use instruction::AddressingMode::*;
 
         // Read the next opcode to be executed.
@@ -308,13 +308,6 @@ impl CPU {
             TXA => self.txa(),
             TXS => self.txs(),
             TYA => self.tya(),
-        }
-    }
-
-    pub fn emulate(&mut self) {
-        // TODO: reset here (e.g. a, x, y, to 0)?
-        loop {
-            self.step();
         }
     }
 

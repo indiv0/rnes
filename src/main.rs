@@ -3,7 +3,7 @@
 
 extern crate rnes;
 
-use rnes::{NROM, ROM};
+use rnes::{CPU, NROM, ROM};
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
@@ -50,8 +50,17 @@ fn main() {
     let rom = ROM::load(&mut reader).expect("Failed to parse ROM");
     println!("Parsed ROM. Header: {}", rom.header());
 
-    // Initialize the memory mapper for the ROM.
     let _mapper = NROM::new(rom);
+    let mut cpu = CPU::new();
+
+    run(&mut cpu);
+}
+
+fn run(cpu: &mut CPU) {
+    // TODO: perhaps reset CPU here (e.g. a, x, y, etc. to 0)?
+    loop {
+        cpu.step();
+    }
 }
 
 /// Print out program usage information.
