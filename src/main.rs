@@ -1,3 +1,8 @@
+#![deny(
+    missing_debug_implementations, single_use_lifetime, trivial_casts, trivial_numeric_casts,
+    unsafe_code, unused_extern_crates, unused_import_braces, unused_qualifications, unused_results,
+    variant_size_differences
+)]
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 

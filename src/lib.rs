@@ -1,3 +1,7 @@
+#![deny(
+    single_use_lifetime, trivial_casts, trivial_numeric_casts, unsafe_code, unused_extern_crates,
+    unused_import_braces, unused_qualifications, variant_size_differences
+)]
 #![cfg_attr(feature = "clippy", feature(plugin))]
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #![cfg_attr(feature = "nightly", feature(test))]
