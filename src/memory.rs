@@ -1,6 +1,35 @@
 // The size of the NES memory (64 KB).
 const MEM_SIZE: usize = 0x1_0000;
 
+// Address pairs corresponding to memory region boundaries.
+const ADDR_RANGE_RAM_START: Address = 0x0000;
+const _ADDR_RANGE_RAM_END: Address = 0x07FF;
+const _ADDR_RANGE_RAM_MIRRORS_0_START: Address = 0x0800;
+const _ADDR_RANGE_RAM_MIRRORS_0_END: Address = 0x0FFF;
+const _ADDR_RANGE_RAM_MIRRORS_1_START: Address = 0x1000;
+const _ADDR_RANGE_RAM_MIRRORS_1_END: Address = 0x17FF;
+const _ADDR_RANGE_RAM_MIRRORS_2_START: Address = 0x1800;
+const ADDR_RANGE_RAM_MIRRORS_2_END: Address = 0x1FFF;
+const ADDR_RANGE_PPU_START: Address = 0x2000;
+const _ADDR_RANGE_PPU_END: Address = 0x2007;
+const _ADDR_RANGE_PPU_MIRRORS_START: Address = 0x2008;
+const ADDR_RANGE_PPU_MIRRORS_END: Address = 0x3FFF;
+const ADDR_RANGE_APU_0_START: Address = 0x4000;
+const ADDR_RANGE_APU_0_END: Address = 0x4017;
+const ADDR_RANGE_APU_1_START: Address = 0x4018;
+const ADDR_RANGE_APU_1_END: Address = 0x401F;
+const ADDR_RANGE_CART_START: Address = 0x4020;
+const ADDR_RANGE_CART_END: Address = 0xFFFF;
+
+// Sizes of each of the memory region boundaries.
+const _MEM_SIZE_RAM: u16 = 0x0800;
+const MEM_SIZE_RAM_MIRROR: u16 = 0x0800; // these are repeated 3 times
+const _MEM_SIZE_PPU: u16 = 0x0008;
+const MEM_SIZE_PPU_MIRROR: u16 = 0x0008; // these are repeated many times
+const _MEM_SIZE_APU_0: u16 = 0x0018;
+const _MEM_SIZE_APU_1: u16 = 0x0008;
+const MEM_SIZE_CART: u16 = 0xBFE0;
+
 /// A memory address.
 pub type Address = u16;
 
@@ -108,19 +137,84 @@ impl Memory for NESMemory {
     }
 
     fn fetch(&self, address: Address) -> u8 {
-        self.address_space[address as usize]
+        assert!((address as usize) < MEM_SIZE);
+
+        let (base, rel) = match address {
+            ADDR_RANGE_RAM_START..=ADDR_RANGE_RAM_MIRRORS_2_END => {
+                (ADDR_RANGE_RAM_START, address % MEM_SIZE_RAM_MIRROR)
+            }
+            ADDR_RANGE_PPU_START..=ADDR_RANGE_PPU_MIRRORS_END => {
+                // FIXME: actually communicate with the PPU here.
+                (ADDR_RANGE_PPU_START, address % MEM_SIZE_PPU_MIRROR)
+            }
+            ADDR_RANGE_APU_0_START..=ADDR_RANGE_APU_0_END => {
+                // FIXME: actually communicate with the APU here.
+                panic!(
+                    "APU/IO not implemented; memory read attempt at: {:#4X}",
+                    address
+                );
+            }
+            ADDR_RANGE_APU_1_START..=ADDR_RANGE_APU_1_END => {
+                // FIXME: implement CPU test mode.
+                panic!(
+                    "CPU test mode not implemented; memory read attempt at: {:#4x}",
+                    address
+                );
+            }
+            ADDR_RANGE_CART_START..=ADDR_RANGE_CART_END => {
+                (ADDR_RANGE_CART_START, address % MEM_SIZE_CART)
+            }
+            _ => unreachable!(),
+        };
+
+        self.address_space[(base + rel) as usize]
     }
 
     fn store(&mut self, address: Address, value: u8) -> u8 {
-        let previous = self.address_space[address as usize];
-        self.address_space[address as usize] = value;
+        assert!((address as usize) < MEM_SIZE);
+
+        let (base, rel) = match address {
+            ADDR_RANGE_RAM_START..=ADDR_RANGE_RAM_MIRRORS_2_END => {
+                (ADDR_RANGE_RAM_START, address % MEM_SIZE_RAM_MIRROR)
+            }
+            ADDR_RANGE_PPU_START..=ADDR_RANGE_PPU_MIRRORS_END => {
+                // FIXME: actually communicate with the PPU here.
+                (ADDR_RANGE_PPU_START, address % MEM_SIZE_PPU_MIRROR)
+            }
+            ADDR_RANGE_APU_0_START..=ADDR_RANGE_APU_0_END => {
+                // FIXME: actually communicate with the APU here.
+                panic!(
+                    "APU/IO not implemented; memory write attempt at: {:#4X}",
+                    address
+                );
+            }
+            ADDR_RANGE_APU_1_START..=ADDR_RANGE_APU_1_END => {
+                // FIXME: implement CPU test mode.
+                panic!(
+                    "CPU test mode not implemented; memory write attempt at: {:#4x}",
+                    address
+                );
+            }
+            ADDR_RANGE_CART_START..=ADDR_RANGE_CART_END => {
+                (ADDR_RANGE_CART_START, address % MEM_SIZE_CART)
+            }
+            _ => unreachable!(),
+        };
+
+        let address = (base + rel) as usize;
+
+        let previous = self.address_space[address];
+        self.address_space[address] = value;
         previous
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Memory, NESMemory};
+    use super::{Memory, NESMemory, _ADDR_RANGE_RAM_MIRRORS_0_START,
+                _ADDR_RANGE_RAM_MIRRORS_1_START, _ADDR_RANGE_RAM_MIRRORS_2_START,
+                ADDR_RANGE_PPU_MIRRORS_END, ADDR_RANGE_PPU_START, ADDR_RANGE_RAM_START,
+                MEM_SIZE_PPU_MIRROR, _ADDR_RANGE_PPU_MIRRORS_START};
 
     #[test]
     fn test_reset() {
@@ -147,5 +241,30 @@ mod tests {
         let previous = memory.store(0x0000, 0xBB);
         assert_eq!(memory.address_space[0x0000], 0xBB);
         assert_eq!(previous, 0xAA);
+    }
+
+    #[test]
+    fn test_mirrors() {
+        let mut memory = NESMemory::new();
+
+        // RAM mirrors.
+        memory.store(ADDR_RANGE_RAM_START, 0xFF);
+        assert_eq!(memory.fetch(ADDR_RANGE_RAM_START), 0xFF);
+        assert_eq!(memory.fetch(_ADDR_RANGE_RAM_MIRRORS_0_START), 0xFF);
+        assert_eq!(memory.fetch(_ADDR_RANGE_RAM_MIRRORS_1_START), 0xFF);
+        assert_eq!(memory.store(_ADDR_RANGE_RAM_MIRRORS_2_START, 0x00), 0xFF);
+        assert_eq!(memory.fetch(ADDR_RANGE_RAM_START), 0x00);
+
+        // PPU register mirrors.
+        memory.store(ADDR_RANGE_PPU_START, 0xFF);
+        assert_eq!(memory.fetch(_ADDR_RANGE_PPU_MIRRORS_START), 0xFF);
+        assert_eq!(
+            memory.store(_ADDR_RANGE_PPU_MIRRORS_START + MEM_SIZE_PPU_MIRROR, 0xAA),
+            0xFF
+        );
+        assert_eq!(
+            memory.fetch(ADDR_RANGE_PPU_MIRRORS_END - MEM_SIZE_PPU_MIRROR + 0x0001),
+            0xAA
+        );
     }
 }

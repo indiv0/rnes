@@ -96,13 +96,14 @@ pub struct CPU {
 
 impl CPU {
     pub fn new() -> Self {
-        let mut memory = NESMemory::new();
+        let memory = NESMemory::new();
 
         // TODO: are these resets necessary?
         // Disable all channels.
-        memory.store(0x4015, 0x00);
+        // FIXME: uncomment these calls when the APU is implemented.
+        //memory.store(0x4015, 0x00);
         // Enable frame IRQ
-        memory.store(0x4017, 0x00);
+        //memory.store(0x4017, 0x00);
 
         Self {
             a: 0,
