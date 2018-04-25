@@ -3,7 +3,7 @@ const MEM_SIZE: usize = 0x1_0000;
 
 // Address pairs corresponding to memory region boundaries.
 const ADDR_RANGE_RAM_START: Address = 0x0000;
-const _ADDR_RANGE_RAM_END: Address = 0x07FF;
+const ADDR_RANGE_RAM_END: Address = 0x07FF;
 const _ADDR_RANGE_RAM_MIRRORS_0_START: Address = 0x0800;
 const _ADDR_RANGE_RAM_MIRRORS_0_END: Address = 0x0FFF;
 const _ADDR_RANGE_RAM_MIRRORS_1_START: Address = 0x1000;
@@ -22,13 +22,13 @@ const ADDR_RANGE_CART_START: Address = 0x4020;
 const ADDR_RANGE_CART_END: Address = 0xFFFF;
 
 // Sizes of each of the memory region boundaries.
-const _MEM_SIZE_RAM: u16 = 0x0800;
-const MEM_SIZE_RAM_MIRROR: u16 = 0x0800; // these are repeated 3 times
+const MEM_SIZE_RAM: u16 = 0x0800;
+const _MEM_SIZE_RAM_MIRROR: u16 = 0x0800; // these are repeated 3 times
 const _MEM_SIZE_PPU: u16 = 0x0008;
-const MEM_SIZE_PPU_MIRROR: u16 = 0x0008; // these are repeated many times
+const _MEM_SIZE_PPU_MIRROR: u16 = 0x0008; // these are repeated many times
 const _MEM_SIZE_APU_0: u16 = 0x0018;
 const _MEM_SIZE_APU_1: u16 = 0x0008;
-const MEM_SIZE_CART: u16 = 0xBFE0;
+const _MEM_SIZE_CART: u16 = 0xBFE0;
 
 /// A memory address.
 pub type Address = u16;
@@ -43,7 +43,7 @@ pub trait Memory {
     fn reset(&mut self);
 
     /// Fetches the value at the specified memory address.
-    fn fetch(&self, address: Address) -> u8;
+    fn fetch(&mut self, address: Address) -> u8;
 
     /// Stores the value at the specified memory address and returns the
     /// previously stored value.
@@ -112,15 +112,24 @@ pub trait Memory {
 /// * `$FFFE-FFFF` - IRQ/BRK vector
 #[derive(Clone)]
 pub struct NESMemory {
-    /// Stores the 64 KB of NES memory.
-    address_space: [u8; MEM_SIZE],
+    /// Stores the 2 KB of NES RAM.
+    ram: [u8; MEM_SIZE_RAM as usize],
+
+    /// The last value read from the bus.
+    ///
+    /// This value is returned when the CPU attempts to read from an address which has no devices active. This is known as [open bus behaviour][open-bus-behaviour].
+    ///
+    /// [open-bus-behaviour]: https://wiki.nesdev.com/w/index.php/Open_bus_behavior "Open bus behaviour"
+    last: u8,
 }
 
 impl NESMemory {
     /// Constructs a new `NESMemory`.
     pub fn new() -> Self {
         Self {
-            address_space: [0; MEM_SIZE],
+            ram: [0; MEM_SIZE_RAM as usize],
+            // TODO: verify that the open bus value after initialization is 0x00.
+            last: 0x00,
         }
     }
 }
@@ -133,19 +142,22 @@ impl Default for NESMemory {
 
 impl Memory for NESMemory {
     fn reset(&mut self) {
-        self.address_space = [0; MEM_SIZE];
+        self.ram = [0; MEM_SIZE_RAM as usize];
     }
 
-    fn fetch(&self, address: Address) -> u8 {
+    fn fetch(&mut self, address: Address) -> u8 {
         assert!((address as usize) < MEM_SIZE);
 
-        let (base, rel) = match address {
+        let value = match address {
             ADDR_RANGE_RAM_START..=ADDR_RANGE_RAM_MIRRORS_2_END => {
-                (ADDR_RANGE_RAM_START, address % MEM_SIZE_RAM_MIRROR)
+                self.ram[(address & ADDR_RANGE_RAM_END) as usize]
             }
             ADDR_RANGE_PPU_START..=ADDR_RANGE_PPU_MIRRORS_END => {
                 // FIXME: actually communicate with the PPU here.
-                (ADDR_RANGE_PPU_START, address % MEM_SIZE_PPU_MIRROR)
+                panic!(
+                    "PPU not implemented; memory read attempt at: {:#4X}",
+                    address
+                );
             }
             ADDR_RANGE_APU_0_START..=ADDR_RANGE_APU_0_END => {
                 // FIXME: actually communicate with the APU here.
@@ -162,24 +174,33 @@ impl Memory for NESMemory {
                 );
             }
             ADDR_RANGE_CART_START..=ADDR_RANGE_CART_END => {
-                (ADDR_RANGE_CART_START, address % MEM_SIZE_CART)
+                // FIXME: implement cartridge memory access, don't just assume open bus behaviour.
+                self.last
             }
             _ => unreachable!(),
         };
 
-        self.address_space[(base + rel) as usize]
+        self.last = value;
+        value
     }
 
     fn store(&mut self, address: Address, value: u8) -> u8 {
         assert!((address as usize) < MEM_SIZE);
 
-        let (base, rel) = match address {
+        match address {
             ADDR_RANGE_RAM_START..=ADDR_RANGE_RAM_MIRRORS_2_END => {
-                (ADDR_RANGE_RAM_START, address % MEM_SIZE_RAM_MIRROR)
+                let address = (address & ADDR_RANGE_RAM_END) as usize;
+
+                let previous = self.ram[address];
+                self.ram[address] = value;
+                previous
             }
             ADDR_RANGE_PPU_START..=ADDR_RANGE_PPU_MIRRORS_END => {
                 // FIXME: actually communicate with the PPU here.
-                (ADDR_RANGE_PPU_START, address % MEM_SIZE_PPU_MIRROR)
+                panic!(
+                    "PPU not implemented; memory write attempt at: {:#4X}",
+                    address
+                );
             }
             ADDR_RANGE_APU_0_START..=ADDR_RANGE_APU_0_END => {
                 // FIXME: actually communicate with the APU here.
@@ -196,16 +217,14 @@ impl Memory for NESMemory {
                 );
             }
             ADDR_RANGE_CART_START..=ADDR_RANGE_CART_END => {
-                (ADDR_RANGE_CART_START, address % MEM_SIZE_CART)
+                // FIXME: implement cartridge memory access.
+                panic!(
+                    "Cartridge memory not implemented; memory read attempt at: {:#4x}",
+                    address
+                );
             }
             _ => unreachable!(),
-        };
-
-        let address = (base + rel) as usize;
-
-        let previous = self.address_space[address];
-        self.address_space[address] = value;
-        previous
+        }
     }
 }
 
@@ -213,23 +232,22 @@ impl Memory for NESMemory {
 mod tests {
     use super::{
         Memory, NESMemory, _ADDR_RANGE_RAM_MIRRORS_0_START, _ADDR_RANGE_RAM_MIRRORS_1_START,
-        _ADDR_RANGE_RAM_MIRRORS_2_START, ADDR_RANGE_PPU_MIRRORS_END, ADDR_RANGE_PPU_START,
-        ADDR_RANGE_RAM_START, MEM_SIZE_PPU_MIRROR, _ADDR_RANGE_PPU_MIRRORS_START,
+        _ADDR_RANGE_RAM_MIRRORS_2_START, ADDR_RANGE_RAM_START,
     };
 
     #[test]
     fn test_reset() {
         let mut memory = NESMemory::new();
-        memory.address_space[0x0000] = 0xAA;
+        memory.ram[0x0000] = 0xAA;
 
         memory.reset();
-        assert_eq!(memory.address_space[0x0000], 0x00);
+        assert_eq!(memory.ram[0x0000], 0x00);
     }
 
     #[test]
     fn test_fetch() {
         let mut memory = NESMemory::new();
-        memory.address_space[0x0000] = 0xAA;
+        memory.ram[0x0000] = 0xAA;
 
         assert_eq!(memory.fetch(0x0000), 0xAA);
     }
@@ -237,15 +255,15 @@ mod tests {
     #[test]
     fn test_store() {
         let mut memory = NESMemory::new();
-        memory.address_space[0x0000] = 0xAA;
+        memory.ram[0x0000] = 0xAA;
 
         let previous = memory.store(0x0000, 0xBB);
-        assert_eq!(memory.address_space[0x0000], 0xBB);
+        assert_eq!(memory.ram[0x0000], 0xBB);
         assert_eq!(previous, 0xAA);
     }
 
     #[test]
-    fn test_mirrors() {
+    fn test_ram_mirrors() {
         let mut memory = NESMemory::new();
 
         // RAM mirrors.
@@ -255,17 +273,35 @@ mod tests {
         assert_eq!(memory.fetch(_ADDR_RANGE_RAM_MIRRORS_1_START), 0xFF);
         assert_eq!(memory.store(_ADDR_RANGE_RAM_MIRRORS_2_START, 0x00), 0xFF);
         assert_eq!(memory.fetch(ADDR_RANGE_RAM_START), 0x00);
+    }
 
-        // PPU register mirrors.
+    // FIXME: uncomment this when the PPU is implemented.
+    /*
+    #[test]
+    fn test_ppu_mirrors() {
+        let mut memory = NESMemory::new();
+
         memory.store(ADDR_RANGE_PPU_START, 0xFF);
         assert_eq!(memory.fetch(_ADDR_RANGE_PPU_MIRRORS_START), 0xFF);
         assert_eq!(
-            memory.store(_ADDR_RANGE_PPU_MIRRORS_START + MEM_SIZE_PPU_MIRROR, 0xAA),
+            memory.store(_ADDR_RANGE_PPU_MIRRORS_START + _MEM_SIZE_PPU_MIRROR, 0xAA),
             0xFF
         );
         assert_eq!(
-            memory.fetch(ADDR_RANGE_PPU_MIRRORS_END - MEM_SIZE_PPU_MIRROR + 0x0001),
+            memory.fetch(ADDR_RANGE_PPU_MIRRORS_END - _MEM_SIZE_PPU_MIRROR + 0x0001),
             0xAA
         );
+    }
+    */
+
+    #[test]
+    fn test_open_bus_behaviour() {
+        let mut memory = NESMemory::new();
+
+        memory.store(0x0000, 0x73);
+
+        assert_eq!(memory.fetch(0x0000), 0x73);
+        // No SRAM is loaded at 0x6000, so we expect open bus behaviour.
+        assert_eq!(memory.fetch(0x6000), 0x73);
     }
 }

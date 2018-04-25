@@ -121,7 +121,8 @@ impl CPU {
         use instruction::AddressingMode::*;
 
         // Read the next opcode to be executed.
-        let opcode: Opcode = self.read_u8(self.pc).into();
+        let pc = self.pc;
+        let opcode: Opcode = self.read_u8(pc).into();
         self.pc += 1;
 
         // Decode the opcode into an executable instruction.
@@ -532,7 +533,7 @@ impl CPU {
 
     /// Retrieves a value "index" positions from the top without removing it.
     #[allow(dead_code)]
-    fn peek(&self, index: u8) -> u8 {
+    fn peek(&mut self, index: u8) -> u8 {
         // Calculate the address we wish to peek at.
         let addr = 0x0100 | u16::from(self.sp.wrapping_add(1).wrapping_add(index));
         self.read_u8(addr)
@@ -541,12 +542,12 @@ impl CPU {
     // Memory read
 
     /// Reads and returns a single u8 value at the specified memory address.
-    fn read_u8(&self, addr: Address) -> u8 {
+    fn read_u8(&mut self, addr: Address) -> u8 {
         self.memory.fetch(addr)
     }
 
     /// Reads and returns a little endian u16 at the specified memory address.
-    fn read_u16(&self, addr: Address) -> u16 {
+    fn read_u16(&mut self, addr: Address) -> u16 {
         let low = u16::from(self.read_u8(addr));
         let high = u16::from(self.read_u8(addr + 1));
         high << 8 | low
@@ -585,7 +586,8 @@ impl CPU {
     ///
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_zero_page(&mut self) -> Address {
-        let addr = Address::from(self.read_u8(self.pc));
+        let pc = self.pc;
+        let addr = Address::from(self.read_u8(pc));
         self.pc += 1;
         addr
     }
@@ -597,7 +599,8 @@ impl CPU {
     ///
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_zero_page_x(&mut self) -> Address {
-        let addr = Address::from(self.read_u8(self.pc));
+        let pc = self.pc;
+        let addr = Address::from(self.read_u8(pc));
         self.pc += 1;
         addr + u16::from(self.x)
     }
@@ -605,7 +608,8 @@ impl CPU {
     /// Returns a memory address by taking the value at the program counter
     /// location and adding it to the current value of the program counter.
     fn relative(&mut self) -> Address {
-        let addr = Address::from(self.read_u8(self.pc));
+        let pc = self.pc;
+        let addr = Address::from(self.read_u8(pc));
         self.pc += 1;
         addr
     }
@@ -617,7 +621,8 @@ impl CPU {
     ///
     /// Increments the program counter by 2 to represent the memory read.
     fn addr_abs(&mut self) -> Address {
-        let addr = self.read_u16(self.pc);
+        let pc = self.pc;
+        let addr = self.read_u16(pc);
         self.pc += 2;
         addr
     }
@@ -629,7 +634,8 @@ impl CPU {
     ///
     /// Increments the program counter by 2 to represent the memory read.
     fn addr_abs_x(&mut self) -> Address {
-        let base_addr = self.read_u16(self.pc);
+        let pc = self.pc;
+        let base_addr = self.read_u16(pc);
         self.pc += 2;
         base_addr + u16::from(self.x)
     }
@@ -641,7 +647,8 @@ impl CPU {
     ///
     /// Increments the program counter by 2 to represent the memory read.
     fn addr_abs_y(&mut self) -> Address {
-        let base_addr = self.read_u16(self.pc);
+        let pc = self.pc;
+        let base_addr = self.read_u16(pc);
         self.pc += 2;
         base_addr + u16::from(self.y)
     }
@@ -652,7 +659,8 @@ impl CPU {
     ///
     /// Increments the program counter by 2 to represent the memory read.
     fn indirect(&mut self) -> Address {
-        let addr_loc = self.read_u16(self.pc);
+        let pc = self.pc;
+        let addr_loc = self.read_u16(pc);
         let addr = self.read_u16(addr_loc);
         self.pc += 2;
         addr
@@ -666,9 +674,11 @@ impl CPU {
     ///
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_ind_x(&mut self) -> Address {
-        let base_addr = Address::from(self.read_u8(self.pc));
+        let pc = self.pc;
+        let base_addr = Address::from(self.read_u8(pc));
         self.pc += 1;
-        self.read_u16(base_addr + u16::from(self.x))
+        let x = self.x;
+        self.read_u16(base_addr + u16::from(x))
     }
 
     /// Retrieves the memory address pointed to by the instruction operand, then
@@ -678,7 +688,8 @@ impl CPU {
     ///
     /// Increments the program counter by 1 to represent the memory read.
     fn addr_ind_y(&mut self) -> Address {
-        let base_addr = Address::from(self.read_u8(self.pc));
+        let pc = self.pc;
+        let base_addr = Address::from(self.read_u8(pc));
         self.pc += 1;
         self.read_u16(base_addr) + u16::from(self.y)
     }
@@ -1239,7 +1250,7 @@ impl Default for CPU {
 
 #[cfg(test)]
 mod tests {
-    use super::{bit_get, bit_set, CPU, CPU_STACK_POINTER_INITIAL_VALUE, IRQ_VECTOR_ADDR};
+    use super::{bit_get, bit_set, CPU, CPU_STACK_POINTER_INITIAL_VALUE};
     use memory::Memory;
     use opcode::Opcode::*;
 
