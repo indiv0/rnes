@@ -5,7 +5,7 @@
 use nom::{le_u8, Err as NomError, Needed};
 use std::fmt;
 use std::io::{Error as IoError, Read};
-use util::{BYTES_PER_KB, CHR_ROM_PAGE_SIZE, PRG_RAM_PAGE_SIZE, PRG_ROM_PAGE_SIZE};
+use util::{new_vec, BYTES_PER_KB, CHR_ROM_PAGE_SIZE, PRG_RAM_PAGE_SIZE, PRG_ROM_PAGE_SIZE};
 
 /// Constant string located at the beginning of every iNES file.
 const HEADER_START: &str = "NES";
@@ -77,7 +77,7 @@ pub enum TvSystem {
 #[derive(Debug, PartialEq)]
 pub struct ROM {
     /// Header.
-    header: Header,
+    pub header: Header,
     /// PRG ROM data.
     // TODO: make this private.
     pub prg_rom: Vec<u8>,
@@ -92,6 +92,17 @@ pub struct ROM {
 }
 
 impl ROM {
+    /// Create a new ROM in-memory from the values specified in the `Header`.
+    pub fn new(header: Header) -> Self {
+        let prg_rom = new_vec(0x00, header.prg_rom_pages() as usize * PRG_ROM_PAGE_SIZE);
+        let chr_rom = new_vec(0x00, header.chr_rom_pages() as usize * PRG_ROM_PAGE_SIZE);
+        Self {
+            header,
+            prg_rom,
+            chr_rom,
+        }
+    }
+
     /// Load and parse the provided input into a NES ROM.
     pub fn load(r: &mut Read) -> Result<ROM, Error> {
         use self::Error;
@@ -104,20 +115,6 @@ impl ROM {
             Done(_rest, output) => Ok(output),
             Error(err) => Err(Error::Nom(err)),
             Incomplete(needed) => Err(Error::Incomplete(needed)),
-        }
-    }
-
-    pub fn header(&self) -> &Header {
-        &self.header
-    }
-}
-
-impl Default for ROM {
-    fn default() -> Self {
-        Self {
-            header: Header::default(),
-            prg_rom: Vec::new(),
-            chr_rom: Vec::new(),
         }
     }
 }
@@ -182,14 +179,32 @@ pub struct Header {
 }
 
 impl Header {
+    /// Constructs a NES ROM header with the specified ROM sizes (all other values will be set to their respective defaults).
+    pub fn new(prg_rom_pages: u8, chr_rom_pages: u8, prg_ram_pages: u8) -> Self {
+        Self {
+            prg_rom_pages,
+            chr_rom_pages,
+            prg_ram_pages,
+            ..Header::default()
+        }
+    }
+
+    /// Size of PRG ROM (in 16 KB pages).
     pub fn prg_rom_pages(&self) -> u8 {
         self.prg_rom_pages
     }
 
+    /// Size of CHR ROM (in 8 KB pages).
     pub fn chr_rom_pages(&self) -> u8 {
         self.chr_rom_pages
     }
 
+    /// Number of mapper to use.
+    pub fn mapper(&self) -> u8 {
+        self.mapper
+    }
+
+    /// Size of PRG RAM (in 8 KB pages).
     pub fn prg_ram_pages(&self) -> u8 {
         self.prg_ram_pages
     }
@@ -219,9 +234,9 @@ impl fmt::Display for Header {
             f,
             "<Header Mapper:{}, PRG ROM:{} KB, CHR ROM:{} KB, PRG RAM:{} KB>",
             self.mapper,
-            self.prg_rom_pages as usize * PRG_ROM_PAGE_SIZE / BYTES_PER_KB,
-            self.chr_rom_pages as usize * CHR_ROM_PAGE_SIZE / BYTES_PER_KB,
-            self.prg_ram_pages as usize * PRG_RAM_PAGE_SIZE / BYTES_PER_KB,
+            self.prg_rom_pages as usize * PRG_ROM_PAGE_SIZE / BYTES_PER_KB as usize,
+            self.chr_rom_pages as usize * CHR_ROM_PAGE_SIZE / BYTES_PER_KB as usize,
+            self.prg_ram_pages as usize * PRG_RAM_PAGE_SIZE / BYTES_PER_KB as usize,
         )
     }
 }
@@ -231,9 +246,9 @@ named!(
     do_parse!(
         header: header >>
         // Load the PRG ROM.
-        prg_rom: take!(header.prg_rom_pages as usize * PRG_ROM_PAGE_SIZE) >>
+        prg_rom: take!(header.prg_rom_pages as usize * PRG_ROM_PAGE_SIZE as usize) >>
         // Load the CHR ROM.
-        chr_rom: take!(header.chr_rom_pages as usize * CHR_ROM_PAGE_SIZE) >>
+        chr_rom: take!(header.chr_rom_pages as usize * CHR_ROM_PAGE_SIZE as usize) >>
         ({
             ROM {
                 header,

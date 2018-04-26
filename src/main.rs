@@ -8,7 +8,7 @@
 
 extern crate rnes;
 
-use rnes::{CPU, NROM, ROM};
+use rnes::{mapper_from_rom, Mapper, CPU, ROM};
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
@@ -53,15 +53,18 @@ fn main() {
 
     // Parse the file contents into a NES `ROM`.
     let rom = ROM::load(&mut reader).expect("Failed to parse ROM");
-    println!("Parsed ROM. Header: {}", rom.header());
+    println!("Parsed ROM. Header: {}", rom.header);
 
-    let _mapper = NROM::new(rom);
-    let mut cpu = CPU::new();
+    let mapper = mapper_from_rom(rom);
+    let mut cpu = CPU::new(mapper);
 
     run(&mut cpu);
 }
 
-fn run(cpu: &mut CPU) {
+fn run<M>(cpu: &mut CPU<M>)
+where
+    M: Mapper,
+{
     // TODO: perhaps reset CPU here (e.g. a, x, y, etc. to 0)?
     loop {
         cpu.step();

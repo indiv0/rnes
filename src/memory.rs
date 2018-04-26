@@ -1,3 +1,6 @@
+use apu::APU;
+use mapper::{Mapper, NROM};
+
 // The size of the NES memory (64 KB).
 const MEM_SIZE: usize = 0x1_0000;
 
@@ -111,9 +114,18 @@ pub trait Memory {
 /// * `$FFFC-FFFD` - Reset vector
 /// * `$FFFE-FFFF` - IRQ/BRK vector
 #[derive(Clone)]
-pub struct NESMemory {
+pub struct NESMemory<M>
+where
+    M: Mapper,
+{
     /// Stores the 2 KB of NES RAM.
     ram: [u8; MEM_SIZE_RAM as usize],
+
+    /// Memory mapper for the cartridge RAM/ROM space.
+    mapper: M,
+
+    /// NES APU.
+    apu: APU,
 
     /// The last value read from the bus.
     ///
@@ -123,24 +135,32 @@ pub struct NESMemory {
     last: u8,
 }
 
-impl NESMemory {
-    /// Constructs a new `NESMemory`.
-    pub fn new() -> Self {
+impl<M> NESMemory<M>
+where
+    M: Mapper,
+{
+    /// Constructs a new `NESMemory` from the given `Mapper`.
+    pub fn new(mapper: M) -> Self {
         Self {
             ram: [0; MEM_SIZE_RAM as usize],
+            mapper,
+            apu: APU,
             // TODO: verify that the open bus value after initialization is 0x00.
             last: 0x00,
         }
     }
 }
 
-impl Default for NESMemory {
+impl Default for NESMemory<NROM> {
     fn default() -> Self {
-        Self::new()
+        Self::new(NROM::default())
     }
 }
 
-impl Memory for NESMemory {
+impl<M> Memory for NESMemory<M>
+where
+    M: Mapper,
+{
     fn reset(&mut self) {
         self.ram = [0; MEM_SIZE_RAM as usize];
     }
@@ -159,13 +179,7 @@ impl Memory for NESMemory {
                     address
                 );
             }
-            ADDR_RANGE_APU_0_START..=ADDR_RANGE_APU_0_END => {
-                // FIXME: actually communicate with the APU here.
-                panic!(
-                    "APU/IO not implemented; memory read attempt at: {:#4X}",
-                    address
-                );
-            }
+            ADDR_RANGE_APU_0_START..=ADDR_RANGE_APU_0_END => self.apu.fetch(address),
             ADDR_RANGE_APU_1_START..=ADDR_RANGE_APU_1_END => {
                 // FIXME: implement CPU test mode.
                 panic!(
@@ -174,8 +188,7 @@ impl Memory for NESMemory {
                 );
             }
             ADDR_RANGE_CART_START..=ADDR_RANGE_CART_END => {
-                // FIXME: implement cartridge memory access, don't just assume open bus behaviour.
-                self.last
+                self.mapper.fetch(address).unwrap_or(self.last)
             }
             _ => unreachable!(),
         };
@@ -202,13 +215,7 @@ impl Memory for NESMemory {
                     address
                 );
             }
-            ADDR_RANGE_APU_0_START..=ADDR_RANGE_APU_0_END => {
-                // FIXME: actually communicate with the APU here.
-                panic!(
-                    "APU/IO not implemented; memory write attempt at: {:#4X}",
-                    address
-                );
-            }
+            ADDR_RANGE_APU_0_START..=ADDR_RANGE_APU_0_END => self.apu.store(address, value),
             ADDR_RANGE_APU_1_START..=ADDR_RANGE_APU_1_END => {
                 // FIXME: implement CPU test mode.
                 panic!(
@@ -216,13 +223,7 @@ impl Memory for NESMemory {
                     address
                 );
             }
-            ADDR_RANGE_CART_START..=ADDR_RANGE_CART_END => {
-                // FIXME: implement cartridge memory access.
-                panic!(
-                    "Cartridge memory not implemented; memory read attempt at: {:#4x}",
-                    address
-                );
-            }
+            ADDR_RANGE_CART_START..=ADDR_RANGE_CART_END => self.mapper.store(address, value),
             _ => unreachable!(),
         }
     }
@@ -231,13 +232,24 @@ impl Memory for NESMemory {
 #[cfg(test)]
 mod tests {
     use super::{
-        Memory, NESMemory, _ADDR_RANGE_RAM_MIRRORS_0_START, _ADDR_RANGE_RAM_MIRRORS_1_START,
-        _ADDR_RANGE_RAM_MIRRORS_2_START, ADDR_RANGE_RAM_START,
+        Address, Memory, NESMemory, _ADDR_RANGE_RAM_MIRRORS_0_START,
+        _ADDR_RANGE_RAM_MIRRORS_1_START, _ADDR_RANGE_RAM_MIRRORS_2_START, ADDR_RANGE_RAM_START,
     };
+    use mapper::{Mapper, NROM};
+    use rom::{Header, ROM};
+
+    /// A mapper with no attached memory; used exclusively for debugging.
+    pub struct EmptyMapper;
+
+    impl Mapper for EmptyMapper {
+        fn store(&mut self, _: Address, _: u8) -> u8 {
+            0x00
+        }
+    }
 
     #[test]
     fn test_reset() {
-        let mut memory = NESMemory::new();
+        let mut memory = NESMemory::default();
         memory.ram[0x0000] = 0xAA;
 
         memory.reset();
@@ -246,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_fetch() {
-        let mut memory = NESMemory::new();
+        let mut memory = NESMemory::default();
         memory.ram[0x0000] = 0xAA;
 
         assert_eq!(memory.fetch(0x0000), 0xAA);
@@ -254,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_store() {
-        let mut memory = NESMemory::new();
+        let mut memory = NESMemory::default();
         memory.ram[0x0000] = 0xAA;
 
         let previous = memory.store(0x0000, 0xBB);
@@ -264,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_ram_mirrors() {
-        let mut memory = NESMemory::new();
+        let mut memory = NESMemory::default();
 
         // RAM mirrors.
         memory.store(ADDR_RANGE_RAM_START, 0xFF);
@@ -279,7 +291,7 @@ mod tests {
     /*
     #[test]
     fn test_ppu_mirrors() {
-        let mut memory = NESMemory::new();
+        let mut memory = NESMemory::default();
 
         memory.store(ADDR_RANGE_PPU_START, 0xFF);
         assert_eq!(memory.fetch(_ADDR_RANGE_PPU_MIRRORS_START), 0xFF);
@@ -295,13 +307,25 @@ mod tests {
     */
 
     #[test]
-    fn test_open_bus_behaviour() {
-        let mut memory = NESMemory::new();
+    fn test_open_bus_behaviour_empty_mapper() {
+        let mut memory = NESMemory::new(EmptyMapper);
 
         memory.store(0x0000, 0x73);
 
         assert_eq!(memory.fetch(0x0000), 0x73);
         // No SRAM is loaded at 0x6000, so we expect open bus behaviour.
         assert_eq!(memory.fetch(0x6000), 0x73);
+    }
+
+    #[test]
+    fn test_open_bus_behaviour_nrom() {
+        let mut memory = NESMemory::new(NROM::new(ROM::new(Header::new(1, 1, 1))));
+
+        memory.store(0x0000, 0x73);
+        memory.store(0x6000, 0x74);
+
+        assert_eq!(memory.fetch(0x0000), 0x73);
+        // 1 page of PRG RAM is loaded at 0x6000, so we do not expect open bus behaviour.
+        assert_eq!(memory.fetch(0x6000), 0x74);
     }
 }

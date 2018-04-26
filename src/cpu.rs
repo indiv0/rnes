@@ -1,3 +1,4 @@
+use mapper::{Mapper, NROM};
 use memory::{Address, Memory, NESMemory};
 use opcode::Opcode;
 use opcode::Opcode::*;
@@ -29,7 +30,10 @@ const IRQ_VECTOR_ADDR: Address = 0xFFFE;
 /// of memory, and a 16-bit address bus. The processor is little endian and
 /// expects addresses to be stored in memory least significant byte first.
 #[derive(Clone)]
-pub struct CPU {
+pub struct CPU<M>
+where
+    M: Mapper,
+{
     // Registers
     /// Accumulator.
     a: u8,
@@ -91,12 +95,15 @@ pub struct CPU {
     /// stack pointer really has an 8-bit address space.
     sp: u8,
 
-    memory: NESMemory,
+    memory: NESMemory<M>,
 }
 
-impl CPU {
-    pub fn new() -> Self {
-        let memory = NESMemory::new();
+impl<M> CPU<M>
+where
+    M: Mapper,
+{
+    pub fn new(mapper: M) -> Self {
+        let memory = NESMemory::new(mapper);
 
         // TODO: are these resets necessary?
         // Disable all channels.
@@ -1242,9 +1249,9 @@ impl CPU {
     }
 }
 
-impl Default for CPU {
+impl Default for CPU<NROM> {
     fn default() -> Self {
-        Self::new()
+        Self::new(NROM::default())
     }
 }
 
@@ -1256,7 +1263,7 @@ mod tests {
 
     #[test]
     fn test_status_register() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.set_carry(false);
         assert!(!cpu.carry());
@@ -1286,7 +1293,7 @@ mod tests {
 
     #[test]
     fn test_stack_push() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.push(0xAA);
         cpu.push(0xBB);
@@ -1297,7 +1304,7 @@ mod tests {
 
     #[test]
     fn test_stack_pop() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.push(0xAA);
 
         assert_eq!(cpu.pop(), 0xAA);
@@ -1306,7 +1313,7 @@ mod tests {
 
     #[test]
     fn test_stack_peek() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.push(0xAA);
         cpu.push(0xBB);
 
@@ -1316,7 +1323,7 @@ mod tests {
 
     #[test]
     fn test_stack_wrapping_behaviour() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         // Pop enough times to reach stack address 0x100.
         cpu.pop();
@@ -1333,7 +1340,7 @@ mod tests {
 
     #[test]
     fn test_read_u8() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x1000, 0xFF);
 
         assert_eq!(cpu.read_u8(0x1000), 0xFF);
@@ -1341,7 +1348,7 @@ mod tests {
 
     #[test]
     fn test_read_u16() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x1000, 0xCD);
         cpu.memory.store(0x1001, 0xAB);
 
@@ -1350,7 +1357,7 @@ mod tests {
 
     #[test]
     fn test_write_u8() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.write_u8(0x0010, 0xAA);
         assert_eq!(cpu.memory.fetch(0x0010), 0xAA);
@@ -1358,7 +1365,7 @@ mod tests {
 
     #[test]
     fn test_addr_imm() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.pc = 0x00FF;
 
         assert_eq!(cpu.addr_imm(), 0x00FF);
@@ -1366,7 +1373,7 @@ mod tests {
 
     #[test]
     fn test_addr_zero_page() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, 0x10);
 
         assert_eq!(cpu.addr_zero_page(), 0x0010);
@@ -1374,7 +1381,7 @@ mod tests {
 
     #[test]
     fn test_addr_zero_page_x() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, 0x10);
         cpu.x = 0x05;
 
@@ -1383,7 +1390,7 @@ mod tests {
 
     #[test]
     fn test_addr_abs() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, 0x00);
         cpu.memory.store(0x0001, 0x02);
 
@@ -1392,7 +1399,7 @@ mod tests {
 
     #[test]
     fn test_addr_abs_x() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, 0x00);
         cpu.memory.store(0x0001, 0x02);
         cpu.x = 0x05;
@@ -1402,7 +1409,7 @@ mod tests {
 
     #[test]
     fn test_addr_abs_y() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, 0x00);
         cpu.memory.store(0x0001, 0x02);
         cpu.y = 0x05;
@@ -1412,7 +1419,7 @@ mod tests {
 
     #[test]
     fn test_addr_ind_x() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, 0x04);
         cpu.memory.store(0x0034, 0xCD);
         cpu.memory.store(0x0035, 0xAB);
@@ -1423,7 +1430,7 @@ mod tests {
 
     #[test]
     fn test_addr_ind_y() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, 0x0A);
         cpu.memory.store(0x000A, 0xEF);
         cpu.memory.store(0x000B, 0xCD);
@@ -1434,7 +1441,7 @@ mod tests {
 
     #[test]
     fn test_adc() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         // 1 + 1 = 2, returns C = 0, V = 0
         cpu.set_zero(false);
@@ -1487,7 +1494,7 @@ mod tests {
 
     #[test]
     fn test_and() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, 0xA5);
 
         cpu.a = 0xFF;
@@ -1511,7 +1518,7 @@ mod tests {
 
     #[test]
     fn test_asl() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.a = 0xFF;
         cpu.asl(None);
@@ -1537,7 +1544,7 @@ mod tests {
 
     #[test]
     fn test_bcc() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BCC as u8);
         cpu.memory.store(0x0001, 0x04);
 
@@ -1553,7 +1560,7 @@ mod tests {
 
     #[test]
     fn test_bcs() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BCS as u8);
         cpu.memory.store(0x0001, 0x04);
 
@@ -1569,7 +1576,7 @@ mod tests {
 
     #[test]
     fn test_beq() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BEQ as u8);
         cpu.memory.store(0x0001, 0x04);
 
@@ -1585,7 +1592,7 @@ mod tests {
 
     #[test]
     fn test_bit() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.a = 0xEA;
 
         cpu.memory.store(0x0000, 0xEA);
@@ -1609,7 +1616,7 @@ mod tests {
 
     #[test]
     fn test_bmi() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BMI as u8);
         cpu.memory.store(0x0001, 0x04);
 
@@ -1625,7 +1632,7 @@ mod tests {
 
     #[test]
     fn test_bne() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BNE as u8);
         cpu.memory.store(0x0001, 0x04);
 
@@ -1641,7 +1648,7 @@ mod tests {
 
     #[test]
     fn test_bpl() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BPL as u8);
         cpu.memory.store(0x0001, 0x04);
 
@@ -1659,7 +1666,7 @@ mod tests {
     /*
     #[test]
     fn test_brk() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BRK as u8);
         cpu.write_u16(IRQ_VECTOR_ADDR, 0x0400);
         cpu.set_break(false);
@@ -1679,7 +1686,7 @@ mod tests {
 
     #[test]
     fn test_bvc() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BVC as u8);
         cpu.memory.store(0x0001, 0x04);
 
@@ -1695,7 +1702,7 @@ mod tests {
 
     #[test]
     fn test_bvs() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BVS as u8);
         cpu.memory.store(0x0001, 0x04);
 
@@ -1711,7 +1718,7 @@ mod tests {
 
     #[test]
     fn test_clc() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, CLC as u8);
         cpu.set_carry(true);
 
@@ -1722,7 +1729,7 @@ mod tests {
 
     #[test]
     fn test_cld() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, CLD as u8);
         cpu.set_decimal_mode(true);
 
@@ -1733,7 +1740,7 @@ mod tests {
 
     #[test]
     fn test_cli() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, CLI as u8);
         cpu.set_irq_disable(true);
 
@@ -1744,7 +1751,7 @@ mod tests {
 
     #[test]
     fn test_clv() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, CLV as u8);
         cpu.set_overflow(true);
 
@@ -1755,7 +1762,7 @@ mod tests {
 
     #[test]
     fn test_cmp() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.a = 0x05;
 
         // Test that the carry, zero, and negative flags get set correctly when
@@ -1796,7 +1803,7 @@ mod tests {
 
     #[test]
     fn test_cpx() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.x = 0x05;
 
         // Test that the carry, zero, and negative flags get set correctly when
@@ -1837,7 +1844,7 @@ mod tests {
 
     #[test]
     fn test_cpy() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.y = 0x05;
 
         // Test that the carry, zero, and negative flags get set correctly when
@@ -1878,7 +1885,7 @@ mod tests {
 
     #[test]
     fn test_dec() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.memory.store(0x0000, 0xFF);
         cpu.set_zero(true);
@@ -1899,7 +1906,7 @@ mod tests {
 
     #[test]
     fn test_dex() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.x = 0xFF;
         cpu.set_zero(true);
@@ -1920,7 +1927,7 @@ mod tests {
 
     #[test]
     fn test_dey() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.y = 0xFF;
         cpu.set_zero(true);
@@ -1941,7 +1948,7 @@ mod tests {
 
     #[test]
     fn test_eor() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.a = 0xFF;
         cpu.memory.store(0x0000, 0x0F);
@@ -1964,7 +1971,7 @@ mod tests {
 
     #[test]
     fn test_inc() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.memory.store(0x0000, 0xFF);
         cpu.set_zero(false);
@@ -1985,7 +1992,7 @@ mod tests {
 
     #[test]
     fn test_inx() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.x = 0xFF;
         cpu.set_zero(false);
@@ -2006,7 +2013,7 @@ mod tests {
 
     #[test]
     fn test_iny() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.y = 0xFF;
         cpu.set_zero(false);
@@ -2027,7 +2034,7 @@ mod tests {
 
     #[test]
     fn test_jmp_abs() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, JMP_ABS as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x01);
@@ -2038,7 +2045,7 @@ mod tests {
 
     #[test]
     fn test_jmp_ind() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, JMP_IND as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x01);
@@ -2051,7 +2058,7 @@ mod tests {
 
     #[test]
     fn test_jsr() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.pc = 0x0220;
         cpu.memory.store(0x0220, 0xBB);
         cpu.memory.store(0x0221, 0xAA);
@@ -2065,7 +2072,7 @@ mod tests {
 
     #[test]
     fn test_lda() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0200, 0xFF);
 
         assert_eq!(cpu.a, 0x00);
@@ -2092,7 +2099,7 @@ mod tests {
 
     #[test]
     fn test_lda_immediate() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, LDA_IMM as u8);
         cpu.memory.store(0x0001, 0x17); // #$17
 
@@ -2102,7 +2109,7 @@ mod tests {
 
     #[test]
     fn test_lda_zero_page() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, LDA_ZPAGE as u8);
         cpu.memory.store(0x0001, 0x02); // $02
         cpu.memory.store(0x0002, 0x03);
@@ -2113,7 +2120,7 @@ mod tests {
 
     #[test]
     fn test_lda_zero_page_x() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, LDA_ZPAGEX as u8);
         cpu.memory.store(0x0001, 0x02); // $02
         cpu.memory.store(0x0005, 0xAB);
@@ -2125,7 +2132,7 @@ mod tests {
 
     #[test]
     fn test_lda_absolute() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, LDA_ABS as u8);
         cpu.memory.store(0x0001, 0x14); // $0314
         cpu.memory.store(0x0002, 0x03);
@@ -2138,7 +2145,7 @@ mod tests {
 
     #[test]
     fn test_lda_absolute_x() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, LDA_ABSX as u8);
         cpu.memory.store(0x0001, 0x00); // $0200
         cpu.memory.store(0x0002, 0x02);
@@ -2152,7 +2159,7 @@ mod tests {
 
     #[test]
     fn test_lda_absolute_y() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, LDA_ABSY as u8);
         cpu.memory.store(0x0001, 0x00); // $0200
         cpu.memory.store(0x0002, 0x02);
@@ -2166,7 +2173,7 @@ mod tests {
 
     #[test]
     fn test_lda_ind_x() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, LDA_INDX as u8);
         cpu.memory.store(0x0001, 0x80); // $0080
         cpu.memory.store(0x008C, 0x3F);
@@ -2180,7 +2187,7 @@ mod tests {
 
     #[test]
     fn test_lda_ind_y() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, LDA_INDY as u8);
         cpu.memory.store(0x0001, 0x14); // $0014
         cpu.memory.store(0x0014, 0x00);
@@ -2194,7 +2201,7 @@ mod tests {
 
     #[test]
     fn test_ldx() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.memory.store(0x0200, 0xFF);
         cpu.set_zero(true);
@@ -2218,7 +2225,7 @@ mod tests {
 
     #[test]
     fn test_ldy() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.memory.store(0x0200, 0xFF);
         cpu.set_zero(true);
@@ -2242,7 +2249,7 @@ mod tests {
 
     #[test]
     fn test_lsr() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.a = 0xFF;
         cpu.set_carry(false);
@@ -2267,7 +2274,7 @@ mod tests {
 
     #[test]
     fn test_nop() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0200, NOP as u8);
         cpu.pc = 0x0200;
 
@@ -2286,7 +2293,7 @@ mod tests {
 
     #[test]
     fn test_ora() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.a = 0xCF;
         cpu.memory.store(0x0000, 0x3F);
@@ -2309,7 +2316,7 @@ mod tests {
 
     #[test]
     fn test_pha() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.a = 0xFF;
         assert_eq!(cpu.peek(0), 0x00);
@@ -2319,7 +2326,7 @@ mod tests {
 
     #[test]
     fn test_php() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.p = 0xFF;
         assert_eq!(cpu.peek(0), 0x00);
@@ -2329,7 +2336,7 @@ mod tests {
 
     #[test]
     fn test_pla() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.a = 0x00;
         cpu.push(0xFF);
@@ -2340,7 +2347,7 @@ mod tests {
 
     #[test]
     fn test_plp() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.p = 0x00;
         cpu.push(0xFF);
@@ -2351,7 +2358,7 @@ mod tests {
 
     #[test]
     fn test_rol() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.a = 0xFF;
         cpu.set_carry(false);
@@ -2376,7 +2383,7 @@ mod tests {
 
     #[test]
     fn test_ror() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         cpu.a = 0xFF;
         cpu.set_carry(false);
@@ -2403,7 +2410,7 @@ mod tests {
     /*
     #[test]
     fn test_rti() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, BRK as u8);
         cpu.memory.store(0x0100, RTI as u8);
         cpu.write_u16(IRQ_VECTOR_ADDR, 0x0100);
@@ -2425,7 +2432,7 @@ mod tests {
 
     #[test]
     fn test_rts() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, JMP_ABS as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x01);
@@ -2439,7 +2446,7 @@ mod tests {
 
     #[test]
     fn test_sbc() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
 
         // 8 - 4 - !1 = 4, returns C = 1, V = 0
         cpu.set_zero(true);
@@ -2504,7 +2511,7 @@ mod tests {
 
     #[test]
     fn test_sec() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, SEC as u8);
         cpu.set_carry(false);
 
@@ -2515,7 +2522,7 @@ mod tests {
 
     #[test]
     fn test_sed() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, SED as u8);
         cpu.set_decimal_mode(false);
 
@@ -2526,7 +2533,7 @@ mod tests {
 
     #[test]
     fn test_sei() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, SEI as u8);
         cpu.set_irq_disable(false);
 
@@ -2537,7 +2544,7 @@ mod tests {
 
     #[test]
     fn test_sta() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, STA_ABS as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);
@@ -2550,7 +2557,7 @@ mod tests {
 
     #[test]
     fn test_stx() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, STX_ABS as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);
@@ -2563,7 +2570,7 @@ mod tests {
 
     #[test]
     fn test_sty() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, STY_ABS as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);
@@ -2576,7 +2583,7 @@ mod tests {
 
     #[test]
     fn test_tax() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, TAX as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);
@@ -2593,7 +2600,7 @@ mod tests {
 
     #[test]
     fn test_tay() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, TAY as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);
@@ -2610,7 +2617,7 @@ mod tests {
 
     #[test]
     fn test_tsx() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, TSX as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);
@@ -2627,7 +2634,7 @@ mod tests {
 
     #[test]
     fn test_txa() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, TXA as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);
@@ -2644,7 +2651,7 @@ mod tests {
 
     #[test]
     fn test_txs() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, TXS as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);
@@ -2661,7 +2668,7 @@ mod tests {
 
     #[test]
     fn test_tya() {
-        let mut cpu = CPU::new();
+        let mut cpu = CPU::default();
         cpu.memory.store(0x0000, TYA as u8);
         cpu.memory.store(0x0001, 0x00);
         cpu.memory.store(0x0002, 0x02);

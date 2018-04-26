@@ -24,3 +24,13 @@ pub fn bit_get(word: u8, n: u8) -> bool {
 pub fn is_negative(value: u8) -> bool {
     bit_get(value, 7)
 }
+
+/// Constructs a `Vec<T>` of a specified length populated with the specified value.
+pub fn new_vec<T>(value: T, len: usize) -> Vec<T>
+where
+    T: Copy,
+{
+    let mut vec = Vec::new();
+    vec.resize(len, value);
+    vec
+}
